@@ -3,7 +3,7 @@ r = 0.02;
 t = linspace(0, 2*pi, 1000);
 
 %Circle
-radius = 0.75;
+radius = 100000;
 x = radius*cos(t);
 y=radius*sin(t);
 
