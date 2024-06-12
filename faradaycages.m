@@ -1,11 +1,11 @@
-n = 100;
+n = 40;
 r = 0.02;
 t = linspace(0, 2*pi, 1000);
 
 %Circle
-radius = 0.75;
-x = radius*cos(t);
-y=radius*sin(t);
+% radius = 0.75;
+% x = radius*cos(t);
+% y=radius*sin(t);
 
 
 %Heart
@@ -13,9 +13,9 @@ y=radius*sin(t);
 % y = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 %Diamond
-% a = 0.7;
-% x = a*cos(t).^3;
-% y = a*sin(t).^3;
+a = 0.7;
+x = a*cos(t).^3;
+y = a*sin(t).^3;
 
 %Rose Curve
 % a = 0.6;
@@ -35,6 +35,7 @@ q = curvspace(p,n);
 xx = q(:, 1);
 yy = q(:, 2);
 c = xx + i*yy;
+
 % c = 0.75*exp(2i*pi*(1:n)/n);
 rr = r*ones(size(c));
 N = max(0, round(4+.5*log10(r)));
@@ -48,8 +49,8 @@ zs = [1.5, 1.5i];
 
 %% allows for multiple point charges
 rhs_log = 0;
-for i = 1:width(zs)
-    rhs_log = rhs_log - log(abs(z-zs(i)));
+for j = 1:width(zs)
+    rhs_log = rhs_log - log(abs(z-zs(j)));
 end
 rhs = [0; rhs_log];
 
@@ -73,8 +74,8 @@ x = linspace(-1.4, 2.2, 120); y = linspace(-1.8, 1.8, 120);
 [xx, yy] = meshgrid(x, y); zz=xx+1i*yy; 
 %% allows for multiple point charges
 uu = 0;
-for i=1:width(zs)
-    uu=uu+log(abs(zz-zs(i)));
+for j=1:width(zs)
+    uu=uu+log(abs(zz-zs(j)));
 end
 
 
@@ -83,9 +84,9 @@ for j=1:n
     for k=1:N, zck = (zz-c(j)).^(-k); kk=k+(j-1)*N;
         uu = uu+a(kk)*real(zck)+b(kk)*imag(zck); end
 end
-theta = linspace(0, 2*pi, 1000);
-a=0.15; %distance from charge
 
+% theta = linspace(0, 2*pi, 1000);
+% a=0.15; %distance from charge
 % x_circ = a*cos(theta) + real(zs);
 % y_circ = a*sin(theta) + imag(zs);
 % [in,~] = inpolygon(xx,yy,x_circ,y_circ);      
@@ -105,7 +106,7 @@ for j=1:n, uu(abs(zz-c(j))<rr(j)) = NaN; end
 z = exp(pi*1i*(-50:50)'/50);
 for j=1:n, disk = c(j)+rr(j)*z; fill(real(disk), imag(disk), [1 .7 .7])
     hold on, plot(disk, '-r'), end
-contour(xx, yy, real(uu), -2:.1:1.2), colormap([0 0 0]), axis([-1.4 2.2 -1.8 1.8])
+contour(xx, yy, real(uu), -2:.1:2), colormap([0 0 0]), axis([-1.4 2.2 -1.8 1.8])
 axis square, plot(real(zs), imag(zs), '.r')
 figure;
     %quiver(grad_xx, grad_yy);
