@@ -1,21 +1,20 @@
-n = 40;
-r = 0.02;
-t = linspace(0, 2*pi, 1000);
+n = 80; %number of wires
+r = 0.02; %radius of wires
+t = linspace(0, 2*pi, 1000); %setting parameter t from 0 to 2pi
 
 %Circle
-% radius = 0.75;
-% x = radius*cos(t);
-% y=radius*sin(t);
-
+radius = 0.75;
+x = radius*cos(t);
+y = radius*sin(t);
 
 %Heart
 % x = 0.08*(16*sin(t).^3);
 % y = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 %Diamond
-a = 0.7;
-x = a*cos(t).^3;
-y = a*sin(t).^3;
+% a = 0.7;
+% x = a*cos(t).^3;
+% y = a*sin(t).^3;
 
 %Rose Curve
 % a = 0.6;
@@ -34,7 +33,7 @@ p = [x', y'];
 q = curvspace(p,n);
 xx = q(:, 1);
 yy = q(:, 2);
-c = xx + i*yy;
+c = xx + 1i*yy;
 
 % c = 0.75*exp(2i*pi*(1:n)/n);
 rr = r*ones(size(c));
@@ -45,9 +44,9 @@ circ = exp((1:npts)'*2i*pi/npts);
 z = []; for j=1:n
     z=[z;c(j)+rr(j)*circ]; end
 A = [0; -ones(size(z))];
-zs = [1.5, 1.5i];
+zs = [1.5, -.75];
 
-%% allows for multiple point charges
+% allows for multiple point charges
 rhs_log = 0;
 for j = 1:width(zs)
     rhs_log = rhs_log - log(abs(z-zs(j)));
@@ -72,7 +71,7 @@ a = X(1:2:end); b=X(2:2:end);
 
 x = linspace(-1.4, 2.2, 120); y = linspace(-1.8, 1.8, 120);
 [xx, yy] = meshgrid(x, y); zz=xx+1i*yy; 
-%% allows for multiple point charges
+% allows for multiple point charges
 uu = 0;
 for j=1:width(zs)
     uu=uu+log(abs(zz-zs(j)));
@@ -93,12 +92,11 @@ end
 
 [grad_xx, grad_yy] = gradient(real(uu), 3.6/120, 3.6/120);
 
-% grad_xx(in)=0;grad_yy(in)=0; %filter for too close to point charge
+%grad_xx(in)=0;grad_yy(in)=0; %filter for too close to point charge
 magFX_grid = sqrt(grad_xx.^2 + grad_yy.^2);
-% magFX_grid(in)=max(magFX_grid, [], "all"); %filter for too close to point charge
+%magFX_grid(in)=max(magFX_grid, [], "all"); %filter for too close to point charge
 
-exp_quantiles = quantile(magFX_grid, [0.025, 0.75], "all");
-disp(exp_quantiles);
+exp_quantiles = quantile(magFX_grid, [0.025, 0.65], "all");
 toobig = magFX_grid>exp_quantiles(2);
 magFX_grid(toobig) = exp_quantiles(2);
 
@@ -107,7 +105,7 @@ z = exp(pi*1i*(-50:50)'/50);
 for j=1:n, disk = c(j)+rr(j)*z; fill(real(disk), imag(disk), [1 .7 .7])
     hold on, plot(disk, '-r'), end
 contour(xx, yy, real(uu), -2:.1:2), colormap([0 0 0]), axis([-1.4 2.2 -1.8 1.8])
-axis square, plot(real(zs), imag(zs), '.r')
+axis square, plot(real(zs(1)), imag(zs(1)), '.r'), plot(real(zs(2)), imag(zs(2)), '.r')
 figure;
     %quiver(grad_xx, grad_yy);
     imagesc(magFX_grid);
