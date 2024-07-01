@@ -1,3 +1,5 @@
+%needs optimization toolbox install
+
 n = 80; %number of wires
 r = 0.02; %radius of wires
 t = linspace(0, 2*pi, 1000);
@@ -13,7 +15,6 @@ samplepoints = curvspace(p,n);
 xx = samplepoints(:, 1);
 yy = samplepoints(:, 2);
 centers = xx + 1i*yy;
-disp(centers);
 
 zs = [1.5]; %location of external field
 
@@ -38,6 +39,20 @@ end
 
 %setting up c
 c = ones(size(centers));
+x0 = ones(size(centers));
+A_eq = c';
+b_eq = 0;
+
+%can't use quadprog, problem is not convex
+% [q, fval] = quadprog(A, f, [], [], A_eq, b_eq);
+
+
+func = @(x)quadconstreq(x, A, f);
+x = fmincon(func, x0, [], [], A_eq, b_eq);
+%fmincon :: problem appears unbounded
+%fmincon stopped because the objective function value is less than the
+%value of the obkective function limit, and constraints are satisfied to
+%within the value of the constraint tolerance
 
 %setting up quadratic solve
 M = [A, c; c', 0];
@@ -81,15 +96,11 @@ for j=1:n
         P = [P [0; real(zck)] [0;imag(zck)]];
     end
 end
-disp(size(P));
-disp(size(rhs));
+
 X = P\rhs;
-disp(X(1));
 e = X(1); X(1) = []; %constant voltage on wires
 d = X(1:2*N+1:end); X(1:2*N+1:end) = [];
-disp(d(1));
 a = X(1:2:end); b=X(2:2:end);
-disp(size(X));
 
 x = linspace(-1.4, 2.2, 120); y = linspace(-1.8, 1.8, 120);
 [xx, yy] = meshgrid(x, y); zz=xx+1i*yy; uu=log(abs(zz-zs));
@@ -101,18 +112,40 @@ for i = 1:numel(zz)
     point = zz(i);
     for j = 1:N
         ri = centers(j);  % Position of point charge j
-        distance = norm(point - ri);  % Distance between r and ri
-        V(i) = V(i) + q_lc(j) / distance;  % Sum contributions from all point charges(wires)
+        %distance = norm(point - ri);  % Distance between r and ri
+        V(i) = V(i) + log(abs(q_lc(j)-point));  % Sum contributions from all point charges(wires)
     end
-    V(i) = V(i)-log(abs(point-zs)); %add contribution from the external field
+    V(i) = V(i)+log(abs(point-zs)); %add contribution from the external field
 end
-disp(centers);
 
-figure;
-contourf(xx, yy, abs(V), 50);
-hold on;
-%quiver(real(V), imag(V));
+
+% figure;
+% quiver(xx, yy, V, 50);
+% hold on;
+% %quiver(real(V), imag(V));
+% for j=1:n, disk = centers(j)+rr(j)*z; fill(real(disk), imag(disk), [1 .7 .7])
+%     hold on, plot(disk, '-r'), end
+% colorbar;
+% colormap jet;
+
+[grad_xx, grad_yy] = gradient(real(V), 3.6/120, 3.6/120);
+
+%grad_xx(in)=0;grad_yy(in)=0; %filter for too close to point charge
+magFX_grid = sqrt(grad_xx.^2 + grad_yy.^2);
+%magFX_grid(in)=max(magFX_grid, [], "all"); %filter for too close to point charge
+
+exp_quantiles = quantile(magFX_grid, [0.025, 0.65], "all");
+toobig = magFX_grid>exp_quantiles(2);
+magFX_grid(toobig) = exp_quantiles(2);
+
+for j=1:n, V(abs(zz-centers(j))<rr(j)) = NaN; end
+z = exp(pi*1i*(-50:50)'/50);
 for j=1:n, disk = centers(j)+rr(j)*z; fill(real(disk), imag(disk), [1 .7 .7])
     hold on, plot(disk, '-r'), end
+contour(xx, yy, real(V), -2:.1:2), colormap([0 0 0]), axis([-1.4 2.2 -1.8 1.8])
+axis square, plot(real(zs), imag(zs), '.r')
+figure;
+    % quiver(grad_xx, grad_yy);
+    imagesc(magFX_grid);
 colorbar;
-colormap jet; 
+axis equal
