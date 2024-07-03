@@ -1,0 +1,22 @@
+% linear potential boundary conditions
+
+% Step 1:
+% setup electric potential that varies linearly along the boundary
+a = 0.5;
+b = 1.2;
+%for x, plug in points on the cage
+% for x from [-2, 2]
+% for y from [-2i, 2i]
+% setting up portion of grid
+x = linspace(-1.4, 2.2, 120); 
+y = linspace(-1.8, 1.8, 120);
+[xx, yy] = meshgrid(x, y); 
+zz=xx+1i*yy;
+uu = zeros(120, 120); %setting up potential field
+%left boundary, boundary condition is linear
+uu(:, 1) = y';
+%right boundary
+uu(:, end) = y' + (2.2+1.4);
+%top boundary
+uu(1, :) = 
+%solve Laplace's equation?

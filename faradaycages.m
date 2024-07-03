@@ -1,4 +1,4 @@
-n = 80; %number of wires
+n = 20; %number of wires
 r = 0.02; %radius of wires
 t = linspace(0, 2*pi, 1000); %setting parameter t from 0 to 2pi
 
@@ -44,12 +44,12 @@ circ = exp((1:npts)'*2i*pi/npts);
 z = []; for j=1:n
     z=[z;c(j)+rr(j)*circ]; end
 A = [0; -ones(size(z))];
-zs = [1.5, -.75];
+zs = [1.5];
 
 % allows for multiple point charges
 rhs_log = 0;
 for j = 1:width(zs)
-    rhs_log = rhs_log - log(abs(z-zs(j)));
+    rhs_log = rhs_log - ((-1).^j)*log(abs(z-zs(j)));
 end
 rhs = [0; rhs_log];
 
@@ -74,7 +74,7 @@ x = linspace(-1.4, 2.2, 120); y = linspace(-1.8, 1.8, 120);
 % allows for multiple point charges
 uu = 0;
 for j=1:width(zs)
-    uu=uu+log(abs(zz-zs(j)));
+    uu=uu+(-1).^j*log(abs(zz-zs(j)));
 end
 
 
@@ -91,6 +91,7 @@ end
 % [in,~] = inpolygon(xx,yy,x_circ,y_circ);      
 
 [grad_xx, grad_yy] = gradient(real(uu), 3.6/120, 3.6/120);
+disp(size(uu));
 
 %grad_xx(in)=0;grad_yy(in)=0; %filter for too close to point charge
 magFX_grid = sqrt(grad_xx.^2 + grad_yy.^2);
@@ -105,7 +106,8 @@ z = exp(pi*1i*(-50:50)'/50);
 for j=1:n, disk = c(j)+rr(j)*z; fill(real(disk), imag(disk), [1 .7 .7])
     hold on, plot(disk, '-r'), end
 contour(xx, yy, real(uu), -2:.1:2), colormap([0 0 0]), axis([-1.4 2.2 -1.8 1.8])
-axis square, plot(real(zs(1)), imag(zs(1)), '.r'), plot(real(zs(2)), imag(zs(2)), '.r')
+axis square, plot(real(zs), imag(zs), '.r')
+%, plot(real(zs(2)), imag(zs(2)), '.r')
 figure;
     %quiver(grad_xx, grad_yy);
     imagesc(magFX_grid);
