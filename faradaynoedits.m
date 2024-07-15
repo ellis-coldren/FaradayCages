@@ -1,22 +1,10 @@
-n = 20;r = 0.1;
+n = 12;r = 0.1;
 c = exp(2i*pi*(1:n)/n);
 rr = r*ones(size(c));
 N = max(0, round(4+.5*log10(r)));
 
 npts = 3*N+2;
-
-t = 0:0.5:2*pi;
-x = sin(t).^3;
-y = 2+(1/16)*(13*cos(t)-5*cos(2*t)-2*cos(3*t)-cos(4*t));
-
-t = linspace(-pi,pi, 350);
-X =  t .* sin( pi * .872*sin(t)./t);
-Y = -abs(t) .* cos(pi * sin(t)./t);
-plot(X,Y);
-p = [X', Y'];
-c = curvspace(p, n);
-
-% circ = exp((1:npts)'*2i*pi/npts);
+circ = exp((1:npts)'*2i*pi/npts);
 z = []; for j=1:n
     z=[z;c(j)+rr(j)*circ]; end
 A = [0; -ones(size(z))];
@@ -29,8 +17,9 @@ for j=1:n
         A = [A [0; real(zck)] [0;imag(zck)]];
     end
 end
-disp(size(A));
+
 disp(size(rhs));
+disp(size(A));
 X = A\rhs;
 disp(size(X));
 e=X(1); X(1) = []; %constant voltage on wires
