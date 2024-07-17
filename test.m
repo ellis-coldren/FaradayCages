@@ -1,4 +1,4 @@
-n = 5;r = 0.1;
+n = 20;r = 0.1;
 c = exp(2i*pi*(1:n)/n);
 rr = r*ones(size(c));
 N = max(0, round(4+.5*log10(r)));
@@ -34,10 +34,11 @@ circ=exp((1:npts)'*2i*pi/npts);
 z = []; for j=1:n
     z=[z;c(j)+rr(j)*circ]; end
 
-A = [0; -ones(size(z, 1), 1); zeros(4*size(top_boundary, 1), 1)];
+% A = [0; -ones(size(z, 1), 1); zeros(4*size(top_boundary, 1), 1)];
+A = [0; -ones(size(z, 1), 1)];
 zs = 2;
 %explicitly define the values on boundary
-linear_vector = [4 6];
+linear_vector = [1 1];
 top_boundary_values = zeros(size(top_boundary, 1), 1);
 bottom_boundary_values = zeros(size(top_boundary, 1), 1);
 right_boundary_values = zeros(size(top_boundary, 1), 1);
@@ -51,28 +52,31 @@ end
 
 boundary_values = [top_boundary_values; bottom_boundary_values; right_boundary_values; left_boundary_values];
 
-rhs = [0; zeros(size(z, 1), 1); top_boundary_values; bottom_boundary_values; right_boundary_values; left_boundary_values];
+% rhs = [0; zeros(size(z, 1), 1); top_boundary_values; bottom_boundary_values; right_boundary_values; left_boundary_values];
 % rhs = [0; -log(abs(z-zs)); top_boundary_values];
+rhs = [0; -log(abs(z-zs))];
 
 disp(top_boundary');
 
 disp(abs(top_boundary(2) - top_boundary(1)));
 for j=1:n
-    A = [A [1; log(abs(z-c(j))); log(abs(top_boundary-top_boundary(j))); log(abs(bottom_boundary-bottom_boundary(j))); log(abs(right_boundary - right_boundary(j))); log(abs(left_boundary - left_boundary(j)))]];
-    A(A== -Inf) = 0;
+    % A = [A [1; log(abs(z-c(j))); log(abs(top_boundary-top_boundary(j))); log(abs(bottom_boundary-bottom_boundary(j))); log(abs(right_boundary - right_boundary(j))); log(abs(left_boundary - left_boundary(j)))]];
+    % A(A== -Inf) = 0;
+    A = [A [1; log(abs(z-c(j)))]];
     for k = 1:N
         zck = (z-c(j)).^(-k);
-        disp(((top_boundary-top_boundary(j)).^(-k))');
-        zck_top = (top_boundary-top_boundary(j)).^(-k);
-        zck_top(zck_top== Inf) = 0;
-        zck_bottom = (bottom_boundary-bottom_boundary(j)).^(-k);
-        zck_bottom(zck_bottom== Inf) = 0;
-        zck_right = (right_boundary - right_boundary(j)).^(-k);
-        zck_right(zck_right== Inf)=0;
-        zck_left = (left_boundary - left_boundary(j)).^(-k);
-        zck_left(zck_left== Inf) = 0;
-        A = [A [0; real(zck); real(zck_top); real(zck_bottom); real(zck_right); real(zck_left)] [0; imag(zck); imag(zck_top); imag(zck_bottom); imag(zck_right); imag(zck_left)]];
-    end
+        % disp(((top_boundary-top_boundary(j)).^(-k))');
+        % zck_top = (top_boundary-top_boundary(j)).^(-k);
+        % zck_top(zck_top== Inf) = 0;
+        % zck_bottom = (bottom_boundary-bottom_boundary(j)).^(-k);
+        % zck_bottom(zck_bottom== Inf) = 0;
+        % zck_right = (right_boundary - right_boundary(j)).^(-k);
+        % zck_right(zck_right== Inf)=0;
+        % zck_left = (left_boundary - left_boundary(j)).^(-k);
+        % zck_left(zck_left== Inf) = 0;
+        % A = [A [0; real(zck); real(zck_top); real(zck_bottom); real(zck_right); real(zck_left)] [0; imag(zck); imag(zck_top); imag(zck_bottom); imag(zck_right); imag(zck_left)]];
+        A = [A [0; real(zck)] [0; imag(zck)]];
+   end
 end
 
 disp(A);
@@ -86,7 +90,6 @@ a = X(1:2:end); b=X(2:2:end);
 x = linspace(-3, 3, 120); y = linspace(-3, 3, 120);
 [xx, yy] = meshgrid(x, y); zz=xx+1i*yy; uu=zeros(size(zz));
 % disp(uu)
-
 
 for j=1:n
     uu = uu+d(j)*log(abs(zz-c(j)));
@@ -119,7 +122,3 @@ figure;
     imagesc(magFX_grid);
 colorbar;
 axis equal;
-
-
-
-
