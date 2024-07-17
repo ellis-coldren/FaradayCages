@@ -7,10 +7,14 @@ npts = 3*N+2;
 circ = exp((1:npts)'*2i*pi/npts);
 z = []; for j=1:n
     z=[z;c(j)+rr(j)*circ]; end
+disp(size(c));
+disp(size(z));
 A = [0; -ones(size(z))];
 zs = 1.5;
 rhs = [0; -log(abs(z-zs))];
-for j=1:n
+disp(size(log(abs(z-c(1)))));
+disp(size(rhs));
+for j=1:n 
     A = [A [1; log(abs(z-c(j)))]];
     for k = 1:N
         zck = (z-c(j)).^(-k);
@@ -18,10 +22,7 @@ for j=1:n
     end
 end
 
-disp(size(rhs));
-disp(size(A));
 X = A\rhs;
-disp(size(X));
 e=X(1); X(1) = []; %constant voltage on wires
 d = X(1:2*N+1:end); X(1:2*N+1:end) = [];
 a = X(1:2:end); b=X(2:2:end);
