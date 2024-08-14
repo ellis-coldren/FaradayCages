@@ -1,20 +1,20 @@
-n = 20; %number of wires
+n = 15; %number of wires
 r = 0.02; %radius of wires
 t = linspace(0, 2*pi, 1000); %setting parameter t from 0 to 2pi
 
 %Circle
-radius = 0.75;
-x = radius*cos(t);
-y = radius*sin(t);
+% radius = 0.75;
+% x = radius*cos(t);
+% y = radius*sin(t);
 
 %Heart
 % x = 0.08*(16*sin(t).^3);
 % y = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 %Diamond
-% a = 0.7;
-% x = a*cos(t).^3;
-% y = a*sin(t).^3;
+a = 0.7;
+x = a*cos(t).^3;
+y = a*sin(t).^3;
 
 %Rose Curve
 % a = 0.6;
@@ -30,7 +30,7 @@ y = radius*sin(t);
 % y = 0.5*((fr-rr)*sin(t) - d*sin(((fr-rr)/rr)*t));
 
 p = [x', y'];
-q = curvspace(p,n);
+q = curvspace(p,n+1);
 xx = q(:, 1);
 yy = q(:, 2);
 c = xx + 1i*yy;

@@ -1,4 +1,4 @@
-n = 6;r = 0.1;
+n = 7;r = 0.1;
 c = exp(2i*pi*(1:n)/n);
 rr = r*ones(size(c));
 N = max(0, round(4+.5*log10(r)));
@@ -11,20 +11,20 @@ x = linspace(-3, 3, 10); y = linspace(-3, 3, 10);
 
 
 z = exp(pi*1i*(-50:50)'/50);
-x = [0.25, 0.75, 0.75, 0.25];
-y = [0.6, 0.6, 1.2, 1.2];
-% x = [-3, 3, 3, -3];
-% y = [-3, -3, 3, 3];
+% x = [0.25, 0.75, 0.75, 0.25];
+% y = [0.6, 0.6, 1.2, 1.2];
+x = [-3, 3, 3, -3];
+y = [-3, -3, 3, 3];
 pgon = polyshape({x, real(c(1)+rr(1)*z)}, {y, imag(c(1)+rr(1)*z)});
-% for j = 2:n
-%     pgon = addboundary(pgon,real(c(j)+rr(j)*z),imag(c(j)+rr(j)*z));
-% end
+for j = 2:n
+    pgon = addboundary(pgon,real(c(j)+rr(j)*z),imag(c(j)+rr(j)*z));
+end
 tr = triangulation(pgon);
 points = tr.Points; %row number is vertex id
 connectivity = tr.ConnectivityList; %row number is triangle id, rows contain vertex id
 % neighbors = neighbors(tr, id); %row is triangle id, tows contain triangle ids
 gm = fegeometry(tr);
-gm = generateMesh(gm, Hmax = 1);
+gm = generateMesh(gm, Hmax = 0.2, Hmin= 0.001);
 numelements = size(gm.Mesh.Elements, 2);
 numnodes = size(gm.Mesh.Nodes, 2);
 % midpoints of the edge are the last 3 rows of the gm.Mesh.Elements
@@ -33,14 +33,15 @@ numnodes = size(gm.Mesh.Nodes, 2);
 
 % finding cage nodes:
 cagePts = findNodes(gm.Mesh,"radius",[real(c(1)), imag(c(1))], rr(1));
-% for j = 1:n
-%     cagePts = [cagePts findNodes(gm.Mesh,"radius",[real(c(j)), imag(c(j))], rr(j))];
-% end
+for j = 1:n
+    cagePts = [cagePts findNodes(gm.Mesh,"radius",[real(c(j)), imag(c(j))], rr(j))];
+end
 
 boundaryPts = findNodes(gm.Mesh, "region", "Edge",[1 2 3 4]);
 
 neighborsMatrix = zeros(numnodes);
 cotangents = zeros(numnodes);
+
 for i = 1:numelements
   v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
 
@@ -58,6 +59,8 @@ for i = 1:numelements
   neighborsMatrix(v2_id, v1_id) = 1;
   neighborsMatrix(v3_id, v2_id) = 1;
   neighborsMatrix(v1_id, v3_id) = 1;
+
+  
 end
 
 neighborsMatrix = neighborsMatrix(any(neighborsMatrix, 2), :); %removing rows of the middle point nodes
@@ -75,6 +78,7 @@ boundaryPts(colstodelete) = [];
 
 Laplacian_umbrella = zeros(numnodes);
 Laplacian_cotangents = zeros(numnodes);
+B_vector = zeros(numnodes, 1);
 for i = 1:numnodes
     normalize_value1 = sum(neighborsMatrix(i, :));
     normalize_value2 = sum(cotangents(i, :));
@@ -84,11 +88,10 @@ for i = 1:numnodes
     Laplacian_cotangents(i,i) = 1;
 end
 
-Laplacian_cotangents
 
 
 % solve x'Lx
-cagePts
+
 % figure
 % pdemesh(gm)
 % hold on
@@ -96,7 +99,6 @@ cagePts
 
 a = zeros(numnodes, 1);
 C = zeros(numnodes, numnodes);
-boundaryPts
 for i =1:size(boundaryPts, 2)
     C(boundaryPts(i), boundaryPts(i)) = 1;
 end
@@ -107,26 +109,52 @@ for i = 1:num_cagepts
     C(cagePts(i), cagePts(i)) = -1;
     C(cagePts(i), cagePts(next)) = 1;
 end
-C
 
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
-u = [4 6];
+u = [4 4];
 boundaryPts_constraints = u*boundaryPts_loc;
 
 %a_boundary = a(boundaryPts);
 
 a(boundaryPts) = boundaryPts_constraints;
 
+numnodes
+size(gm.Mesh.Nodes)
+%L = zeros(size(gm.Mesh.Nodes, 2));
+%L = cotmatrix(gm.Mesh.Nodes', gm.Mesh.Elements);
+
 x = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-x
-patch_x = []
-patch_y = []
-patch_color = []
-for i = 1:numnodes
-    tri = 
-    patch_x = [patch_x]
+
+grad_xx = gradient(x) ./ gradient(gm.Mesh.Nodes(1, :));
+grad_yy = gradient(x) ./ gradient(gm.Mesh.Nodes(2, :));
+mag_grad = sqrt(grad_xx.^2 + grad_yy.^2);
+patch_x = []; %holds the x values of the triangle vertices
+patch_y = []; %holds the y values of the triangle vertices
+patch_color_grad = [];
+patch_color = [];
+for i = 1:numelements
+    v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
+    v1 = gm.Mesh.Nodes(:, v1_id);v2 = gm.Mesh.Nodes(:, v2_id);v3 = gm.Mesh.Nodes(:, v3_id);
+    patch_x = [patch_x, [v1(1);v2(1);v3(1)]];
+    patch_y = [patch_y, [v1(2);v2(2);v3(2)]];
+    grad_v1 = (x(v2_id) - x(v3_id)) ./ (norm(v1-v2) + norm(v1-v3));
+    grad_v2 = (x(v1_id) - x(v3_id)) ./ (norm(v2-v1) + norm(v2-v3));
+    grad_v3 = (x(v1_id) - x(v2_id)) ./ (norm(v3-v1) + norm(v3-v2));
+
+    area_of_triangle = 0.5*norm(cross((v1-v2), (v1-v3)));
+    patch_color_grad = [patch_color_grad, [grad_v1; grad_v2; grad_v3]];
+    patch_color = [patch_color, [x(v1_id); x(v2_id); x(v3_id)]];
 end
 % plotting 
 % patch for linear interpolation
-pdemesh(gm, "NodeLabels","on");
-axis equal
+%pdemesh(gm, "NodeLabels","on");
+%axis equal
+figure
+% imagesc([grad_xx, grad_yy]);
+% pdemesh(gm);
+patch(patch_x, patch_y, patch_color)
+colorbar
+
+figure
+patch(patch_x, patch_y, patch_color_grad)
+colorbar
