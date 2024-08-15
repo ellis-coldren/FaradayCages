@@ -1,16 +1,16 @@
-n = 25;r = 0.01;
+n = 10;r = 0.01;
 
 t = linspace(0, 2*pi, 1000);
 
 %Circle
-% radius = 0.75;
-% x_shape = radius*cos(t);
-% y_shape = radius*sin(t);
+radius = 0.75;
+x_shape = radius*cos(t);
+y_shape = radius*sin(t);
 
 
 %Heart
-x_shape = 0.08*(16*sin(t).^3);
-y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
+% x_shape = 0.08*(16*sin(t).^3);
+% y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 %Diamond
 % a = 0.7;
@@ -57,7 +57,7 @@ z = exp(pi*1i*(-50:50)'/50);
 % y = [0.6, 0.6, 1.2, 1.2];
 x = [-3, 3, 3, -3];
 y = [-3, -3, 3, 3];
-disp(c(1));
+disp(c);
 pgon = polyshape({x, real(c(1)+rr(1)*z)}, {y, imag(c(1)+rr(1)*z)});
 for j = 2:n
     pgon = addboundary(pgon,real(c(j)+rr(j)*z),imag(c(j)+rr(j)*z));
@@ -86,9 +86,13 @@ neighborsMatrix = zeros(numnodes);
 cotangents = zeros(numnodes);
 
 for i = 1:numelements
-  v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
+  v1_id = gm.Mesh.Elements(1, i);
+  v2_id = gm.Mesh.Elements(2, i);
+  v3_id = gm.Mesh.Elements(3, i);
 
-  v1 = gm.Mesh.Nodes(:, v1_id);v2 = gm.Mesh.Nodes(:, v2_id);v3 = gm.Mesh.Nodes(:, v3_id);
+  v1 = gm.Mesh.Nodes(:, v1_id);
+  v2 = gm.Mesh.Nodes(:, v2_id);
+  v3 = gm.Mesh.Nodes(:, v3_id);
   
   neighborsMatrix(v1_id, v2_id) = 1;
   cotangents(v1_id, v2_id) = cotangents(v1_id, v2_id) + 0.5*cot(acos(dot(v1-v3, v2-v3)/(norm(v1-v3)*norm(v2-v3))));
@@ -102,8 +106,6 @@ for i = 1:numelements
   neighborsMatrix(v2_id, v1_id) = 1;
   neighborsMatrix(v3_id, v2_id) = 1;
   neighborsMatrix(v1_id, v3_id) = 1;
-
-  
 end
 
 neighborsMatrix = neighborsMatrix(any(neighborsMatrix, 2), :); %removing rows of the middle point nodes
@@ -126,8 +128,8 @@ for i = 1:numnodes
     normalize_value2 = sum(cotangents(i, :));
     % Laplacian_umbrella(i, :) = -neighborsMatrix(i, :)/normalize_value1;
     % Laplacian_umbrella(i:i) = 1;
-    Laplacian_cotangents(i, :) = -cotangents(i, :)/normalize_value2;
-    Laplacian_cotangents(i,i) = 1;
+    Laplacian_cotangents(i, :) = -cotangents(i, :);
+    Laplacian_cotangents(i,i) = normalize_value2;
 end
 
 
@@ -153,7 +155,7 @@ for i = 1:num_cagepts
 end
 
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
-u = [4 4];
+u = [0 6];
 boundaryPts_constraints = u*boundaryPts_loc;
 
 %a_boundary = a(boundaryPts);
@@ -174,10 +176,14 @@ patch_x = []; %holds the x values of the triangle vertices
 patch_y = []; %holds the y values of the triangle vertices
 % patch_color_grad = [];
 patch_color = [];
-patch_color_faces = [];
+face_gradient = [];
 for i = 1:numelements
-    v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
-    v1 = gm.Mesh.Nodes(:, v1_id);v2 = gm.Mesh.Nodes(:, v2_id);v3 = gm.Mesh.Nodes(:, v3_id);
+    v1_id = gm.Mesh.Elements(1, i);
+    v2_id = gm.Mesh.Elements(2, i);
+    v3_id = gm.Mesh.Elements(3, i);
+    v1 = gm.Mesh.Nodes(:, v1_id);
+    v2 = gm.Mesh.Nodes(:, v2_id);
+    v3 = gm.Mesh.Nodes(:, v3_id);
     patch_x = [patch_x, [v1(1);v2(1);v3(1)]];
     patch_y = [patch_y, [v1(2);v2(2);v3(2)]];
     % grad_v1 = (x(v2_id) - x(v3_id)) ./ (norm(v1-v2) + norm(v1-v3));
@@ -195,7 +201,7 @@ for i = 1:numelements
 
     grad_face = (x(v2_id) - x(v1_id))*B2 + (x(v3_id)-x(v1_id))*B3;
 
-    patch_color_faces = [patch_color_faces; norm(grad_face)];
+    face_gradient = [face_gradient; norm(grad_face)];
     % patch_color_grad = [patch_color_grad, [grad_v1; grad_v2; grad_v3]];
     patch_color = [patch_color, [x(v1_id); x(v2_id); x(v3_id)]];
 end
@@ -206,18 +212,16 @@ end
 
 % imagesc([grad_xx, grad_yy]);
 % pdemesh(gm);
-exp_quantiles = quantile(patch_color_faces, [0.025, 0.75], "all");
-toobig = patch_color_faces>exp_quantiles(2);
-patch_color_faces(toobig) = exp_quantiles(2);
+exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
+toobig = face_gradient>exp_quantiles(2);
+face_gradient(toobig) = exp_quantiles(2);
 
-bottom_15_percentile = quantile(patch_color_faces, 0.15);
-inside_outside = double(patch_color_faces <= bottom_15_percentile);
+bottom_15_percentile = quantile(face_gradient, 0.15);
+inside_outside = double(face_gradient <= bottom_15_percentile);
 
-disp(max(patch_color_faces));
-disp(min(patch_color_faces));
 
 figure
-patch(patch_x, patch_y, patch_color_faces)
+patch(patch_x, patch_y, face_gradient)
 % patch(patch_x, patch_y, patch_color)
 colorbar
 
@@ -226,5 +230,13 @@ patch(patch_x, patch_y, patch_color)
 colorbar
 
 figure
-patch(patch_x, patch_y, inside_outside)
-colorbar
+% trisurf(gm.Mesh.Elements(1:3, :), gm.Mesh.Nodes(1, :), gm.Mesh.Nodes(2, :));
+contourf(gm.Mesh.Nodes(1, :), gm.Mesh.Nodes(2, :), x, leve)
+
+% figure
+% patch(patch_x, patch_y, inside_outside)
+% colorbar
+
+
+
+
