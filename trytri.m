@@ -1,5 +1,5 @@
 
-n = 15;r = 0.01; % frequency and radius of cage vertices
+n = 25;r = 0.01; % frequency and radius of cage vertices
 t = linspace(0, 2*pi, 1000); % parameter value
 
 
@@ -160,23 +160,27 @@ end
 % coordinates of the boundary points
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 
-%%% -------------------for multiple direction---------------------------- %%%
+% %%% -------------------for multiple direction---------------------------- %%%
 u_x = 6;
 u_y = 6;
-u_directions = [u_x u_y;
-                u_x -u_y;
-                -u_x -u_y;
-                -u_x u_y];
+u_1 = [u_x u_y];
+u_2 = [u_x -u_y];
+u_3 = [-u_x -u_y];
+u_4 = [-u_x u_y]
 
-for i=1:4
-    boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
-    a(boundaryPts) = boundaryPts_constraints;
-    if i > 1
-        sol = max(sol, quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a));
-    else
-        sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-    end
-end
+boundaryPts_constraints = u_1*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_1 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+boundaryPts_constraints = u_2*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_2 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+boundaryPts_constraints = u_3*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_3 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+boundaryPts_constraints = u_4*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_4 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+
 %%% -----------------------------------------------------------------%%%
 
 %%% -------------------for one direction---------------------------- %%%
@@ -205,17 +209,24 @@ for i = 1:numelements
     B2 = (v1-v3)/twoAT;B2 = [-B2(2), B2(1)];
     B3 = (v2-v1)/twoAT;B3 = [-B3(2), B3(1)];
 
-    grad_face = (sol(v2_id) - sol(v1_id))*B2 + (sol(v3_id)-sol(v1_id))*B3;
+    grad_face_1 = (sol_1(v2_id) - sol_1(v1_id))*B2 + (sol_1(v3_id)-sol_1(v1_id))*B3;
+    norm_grad = norm(grad_face_1);
+    grad_face_2 = (sol_2(v2_id) - sol_2(v1_id))*B2 + (sol_2(v3_id)-sol_2(v1_id))*B3;
+    norm_grad = max(norm_grad, norm(grad_face_2));
+    grad_face_3 = (sol_3(v2_id) - sol_3(v1_id))*B2 + (sol_3(v3_id)-sol_3(v1_id))*B3;
+    norm_grad = max(norm_grad, norm(grad_face_3));
+    grad_face_4 = (sol_4(v2_id) - sol_4(v1_id))*B2 + (sol_4(v3_id)-sol_4(v1_id))*B3;
+    norm_grad = max(norm_grad, norm(grad_face_4));
 
-    face_gradient = [face_gradient; norm(grad_face)];
-    patch_color = [patch_color, [sol(v1_id); sol(v2_id); sol(v3_id)]];
+    face_gradient = [face_gradient; norm_grad];
+    patch_color = [patch_color, [sol_1(v1_id); sol_1(v2_id); sol_1(v3_id)]];
 end
 
 %%% -------------------setting up grid---------------------------- %%%
 x = linspace(-3, 3, 400); y = linspace(-3, 3, 400);
 [xGrid, yGrid] = meshgrid(x, y);
 % https://www.mathworks.com/help/matlab/ref/scatteredinterpolant.html
-F = scatteredInterpolant((gm.Mesh.Nodes(1,1:numnodes))', (gm.Mesh.Nodes(2,1:numnodes))', sol, 'linear');
+F = scatteredInterpolant((gm.Mesh.Nodes(1,1:numnodes))', (gm.Mesh.Nodes(2,1:numnodes))', sol_1, 'linear');
 tri_to_grid = F(xGrid, yGrid);
 [grad_xx, grad_yy] = gradient(tri_to_grid, 6/100, 6/100);
 magFX_grid = sqrt(grad_xx.^2 + grad_yy.^2);
@@ -292,6 +303,7 @@ inside_grid = F(xGrid_2, yGrid_2);
 figure;
 contour(xGrid_2, yGrid_2, inside_grid, [0.5 0.5], 'k', 'LineWidth', 2);
 colorbar;
+
 
 
 

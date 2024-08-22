@@ -1,5 +1,5 @@
 
-n = 15;r = 0.01; % frequency and radius of cage vertices
+n = 25;r = 0.01; % frequency and radius of cage vertices
 t = linspace(0, 2*pi, 1000); % parameter value
 
 
@@ -147,33 +147,40 @@ for i =1:size(boundaryPts, 2)
 end
 
 num_cagepts = size(cagePts, 2);
-% if i 
-% C(i, i) = -1 and C(i)
+% if i is a cage vertex
+% get the next cage vertex
+% C(i, i) = -1 and C(i, next) = 1
+% so that all cage vertices are equal
 for i = 1:num_cagepts
     next = mod(i, num_cagepts)+1;
     C(cagePts(i), cagePts(i)) = -1;
     C(cagePts(i), cagePts(next)) = 1;
 end
 
+% coordinates of the boundary points
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 
-%%% -------------------for multiple direction---------------------------- %%%
+% %%% -------------------for multiple direction---------------------------- %%%
 u_x = 6;
 u_y = 6;
-u_directions = [u_x u_y;
-                u_x -u_y;
-                -u_x -u_y;
-                -u_x u_y];
+u_1 = [u_x u_y];
+u_2 = [u_x -u_y];
+u_3 = [-u_x -u_y];
+u_4 = [-u_x u_y]
 
-for i=1:4
-    boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
-    a(boundaryPts) = boundaryPts_constraints;
-    if i > 1
-        sol = max(sol, quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a));
-    else
-        sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-    end
-end
+boundaryPts_constraints = u_1*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_1 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+boundaryPts_constraints = u_2*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_2 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+boundaryPts_constraints = u_3*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_3 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+boundaryPts_constraints = u_4*boundaryPts_loc;
+a(boundaryPts) = boundaryPts_constraints;
+sol_4 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+
 %%% -----------------------------------------------------------------%%%
 
 %%% -------------------for one direction---------------------------- %%%
@@ -186,11 +193,12 @@ end
 
 patch_x = []; %holds the x values of the triangle vertices
 patch_y = []; %holds the y values of the triangle vertices
-patch_color = [];
-face_gradient = [];
+patch_color = []; %holds the interpolated value of sol of the patch
+face_gradient = []; % holds the magnitude of the face gradient of the patch
 for i = 1:numelements
     v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
     v1 = gm.Mesh.Nodes(:, v1_id);v2 = gm.Mesh.Nodes(:, v2_id);v3 = gm.Mesh.Nodes(:, v3_id);
+
     patch_x = [patch_x, [v1(1);v2(1);v3(1)]];
     patch_y = [patch_y, [v1(2);v2(2);v3(2)]];
     
@@ -201,10 +209,14 @@ for i = 1:numelements
     B2 = (v1-v3)/twoAT;B2 = [-B2(2), B2(1)];
     B3 = (v2-v1)/twoAT;B3 = [-B3(2), B3(1)];
 
-    grad_face = (sol(v2_id) - sol(v1_id))*B2 + (sol(v3_id)-sol(v1_id))*B3;
+    grad_face_1 = (sol_1(v2_id) - sol_1(v1_id))*B2 + (sol_1(v3_id)-sol_1(v1_id))*B3;
+    grad_face_2 = (sol_2(v2_id) - sol_2(v1_id))*B2 + (sol_2(v3_id)-sol_2(v1_id))*B3;
+    grad_face_3 = (sol_3(v2_id) - sol_3(v1_id))*B2 + (sol_3(v3_id)-sol_3(v1_id))*B3;
+    grad_face_4 = (sol_4(v2_id) - sol_4(v1_id))*B2 + (sol_4(v3_id)-sol_4(v1_id))*B3;
+    norm_grad = max(norm(grad_face_1), norm(grad_face))
 
     face_gradient = [face_gradient; norm(grad_face)];
-    patch_color = [patch_color, [sol(v1_id); sol(v2_id); sol(v3_id)]];
+    patch_color = [patch_color, [sol_1(v1_id); sol_1(v2_id); sol_1(v3_id)]];
 end
 
 %%% -------------------setting up grid---------------------------- %%%
@@ -243,19 +255,8 @@ colorbar;
 figure;
 contour(xGrid, yGrid, inside_outside, [0.5 0.5], 'k', 'LineWidth', 2);
 
-
-
-
 %%% -----------------------------------------------------------------%%%
 
-
-% plotting 
-% patch for linear interpolation
-%pdemesh(gm, "NodeLabels","on");
-%axis equal
-
-% imagesc([grad_xx, grad_yy]);
-% pdemesh(gm);
 exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
 toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
@@ -299,6 +300,8 @@ inside_grid = F(xGrid_2, yGrid_2);
 figure;
 contour(xGrid_2, yGrid_2, inside_grid, [0.5 0.5], 'k', 'LineWidth', 2);
 colorbar;
+
+tricontour()
 
 
 
