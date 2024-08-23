@@ -162,22 +162,19 @@ end
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 
 %%% -------------------for multiple direction---------------------------- %%%
-num_direcs = 60;    % num directions to test
-fieldvec_mag = 6*sqrt(2);
+num_direcs = 15;    % num directions to test
+fieldvec_mag = 1;
 u_directions = [];
 for j = 1:num_direcs
     u_directions = [u_directions; fieldvec_mag*cos(j*2*pi/num_direcs) fieldvec_mag*sin(j*2*pi/num_direcs)];
 end
-
+sol = zeros(numnodes, num_direcs);
 for i=1:num_direcs
     boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
     a(boundaryPts) = boundaryPts_constraints;
-    if i > 1
-        sol = max(sol, quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a));
-    else
-        sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-    end
+    sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
 end
+size(sol)
 %%% -----------------------------------------------------------------%%%
 
 %%% -------------------for one direction---------------------------- %%%
@@ -206,64 +203,26 @@ for i = 1:numelements
     B2 = (v1-v3)/twoAT;B2 = [-B2(2), B2(1)];
     B3 = (v2-v1)/twoAT;B3 = [-B3(2), B3(1)];
 
-    grad_face_1 = (sol_1(v2_id) - sol_1(v1_id))*B2 + (sol_1(v3_id)-sol_1(v1_id))*B3;
-    norm_grad = norm(grad_face_1);
-    grad_face_2 = (sol_2(v2_id) - sol_2(v1_id))*B2 + (sol_2(v3_id)-sol_2(v1_id))*B3;
-    norm_grad = max(norm_grad, norm(grad_face_2));
-    grad_face_3 = (sol_3(v2_id) - sol_3(v1_id))*B2 + (sol_3(v3_id)-sol_3(v1_id))*B3;
-    norm_grad = max(norm_grad, norm(grad_face_3));
-    grad_face_4 = (sol_4(v2_id) - sol_4(v1_id))*B2 + (sol_4(v3_id)-sol_4(v1_id))*B3;
-    norm_grad = max(norm_grad, norm(grad_face_4));
+    for i = 1:num_direcs
+        grad_face = (sol(v2_id, i) - sol(v1_id, i))*B2 + (sol(v3_id, i)-sol(v1_id, i))*B3;
+        if i == 1
+            norm_grad = norm(grad_face);
+        else
+            norm_grad = max(norm_grad, norm(grad_face));
+        end
+    end
 
     face_gradient = [face_gradient; norm_grad];
-    patch_color = [patch_color, [sol_1(v1_id); sol_1(v2_id); sol_1(v3_id)]];
+    patch_color = [patch_color, [sol(v1_id, 1); sol(v2_id, 1); sol(v3_id, 1)]];
 end
-
-%%% -------------------setting up grid---------------------------- %%%
-x = linspace(-3, 3, 400); y = linspace(-3, 3, 400);
-[xGrid, yGrid] = meshgrid(x, y);
-% https://www.mathworks.com/help/matlab/ref/scatteredinterpolant.html
-F = scatteredInterpolant((gm.Mesh.Nodes(1,1:numnodes))', (gm.Mesh.Nodes(2,1:numnodes))', sol_1, 'linear');
-tri_to_grid = F(xGrid, yGrid);
-[grad_xx, grad_yy] = gradient(tri_to_grid, 6/100, 6/100);
-magFX_grid = sqrt(grad_xx.^2 + grad_yy.^2);
-
-exp_quantiles = quantile(magFX_grid, [0.025, 0.75], "all");
-toobig = magFX_grid>exp_quantiles(2);
-magFX_grid(toobig) = exp_quantiles(2);
-
-bottom_10_percentile = quantile(magFX_grid, 0.08, "all");
-bottom_10_percentile
-inside_outside = double(magFX_grid <= bottom_10_percentile);
-
-figure;
-imagesc(magFX_grid);
-%quiver(grad_xx, grad_yy);
-axis xy; 
-colorbar;
-
-% n = 10;
-% kernel = ones(n)/n.^2;
-% inside_outside_conv = conv2(inside_outside, kernel,'same') ;
-
-figure;
-imagesc(inside_outside);
-%quiver(grad_xx, grad_yy);
-axis xy; 
-colorbar;
-
-figure;
-contour(xGrid, yGrid, inside_outside, [0.5 0.5], 'k', 'LineWidth', 2);
-
-%%% -----------------------------------------------------------------%%%
 
 exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
 toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
 
-bottom_10_percentile = quantile(face_gradient, 0.1);
-bottom_10_percentile
-inside_outside = double(face_gradient <= bottom_10_percentile);
+bottom_15_percentile = quantile(face_gradient, 0.15);
+bottom_15_percentile
+inside_outside = double(face_gradient <= bottom_15_percentile);
 
 
 figure
@@ -287,20 +246,13 @@ vertex_counts = zeros(numnodes, 1); % To keep track of how many faces contribute
 
 for i = 1:size(inside_outside)
     face = gm.Mesh.Elements(1:3, i);
-    vertex_values(face) = vertex_values(face) + inside_outside(i); % Accumulate face value for vertices
+    vertex_values(face) = vertex_values(face) + face_gradient(i); % Accumulate face value for vertices
     vertex_counts(face) = vertex_counts(face) + 1; % Count contributions to each vertex
 end
 vertex_values = vertex_values ./ vertex_counts;
 
-x_2 = linspace(-3, 3, 150); y_2 = linspace(-3, 3, 150);
-[xGrid_2, yGrid_2] = meshgrid(x_2, y_2);
-F_2 = scatteredInterpolant((gm.Mesh.Nodes(1,1:numnodes))', (gm.Mesh.Nodes(2,1:numnodes))', vertex_values, 'linear');
-inside_grid = F(xGrid_2, yGrid_2);
-
 figure;
-contour(xGrid_2, yGrid_2, inside_grid, [0.5 0.5], 'k', 'LineWidth', 2);
-colorbar;
-
+tricontf(gm.Mesh.Nodes(1,1:numnodes)', gm.Mesh.Nodes(2,1:numnodes)', gm.Mesh.Elements(1:3, :)', vertex_values, [0.5 0.5], 'k');
 
 
 
