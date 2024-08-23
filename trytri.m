@@ -33,11 +33,12 @@ y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 % x_shape = 0.5*((fr-rr)*cos(t)+d*cos(((fr-rr)/rr)*t));
 % y_shape = 0.5*((fr-rr)*sin(t) - d*sin(((fr-rr)/rr)*t));
 
+noise_param = 0.1;  % param to control deg of randomness in curve
 
 p = [x_shape', y_shape'];
 q = curvspace(p,n+1); % generates points that interpolate curve
-xx = q(:, 1); % x values of curve
-yy = q(:, 2); % y values of curve
+xx = q(:, 1) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % x values of curve
+yy = q(:, 2) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % y values of curve
 c = xx + 1i*yy; % curve as vector of complex coordinates
 
 rr = r*ones(size(c)); % radii of cage vertices as vector
@@ -160,27 +161,23 @@ end
 % coordinates of the boundary points
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 
-% %%% -------------------for multiple direction---------------------------- %%%
-u_x = 6;
-u_y = 6;
-u_1 = [u_x u_y];
-u_2 = [u_x -u_y];
-u_3 = [-u_x -u_y];
-u_4 = [-u_x u_y]
+%%% -------------------for multiple direction---------------------------- %%%
+num_direcs = 60;    % num directions to test
+fieldvec_mag = 6*sqrt(2);
+u_directions = [];
+for j = 1:num_direcs
+    u_directions = [u_directions; fieldvec_mag*cos(j*2*pi/num_direcs) fieldvec_mag*sin(j*2*pi/num_direcs)];
+end
 
-boundaryPts_constraints = u_1*boundaryPts_loc;
-a(boundaryPts) = boundaryPts_constraints;
-sol_1 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-boundaryPts_constraints = u_2*boundaryPts_loc;
-a(boundaryPts) = boundaryPts_constraints;
-sol_2 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-boundaryPts_constraints = u_3*boundaryPts_loc;
-a(boundaryPts) = boundaryPts_constraints;
-sol_3 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-boundaryPts_constraints = u_4*boundaryPts_loc;
-a(boundaryPts) = boundaryPts_constraints;
-sol_4 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-
+for i=1:num_direcs
+    boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
+    a(boundaryPts) = boundaryPts_constraints;
+    if i > 1
+        sol = max(sol, quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a));
+    else
+        sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+    end
+end
 %%% -----------------------------------------------------------------%%%
 
 %%% -------------------for one direction---------------------------- %%%
