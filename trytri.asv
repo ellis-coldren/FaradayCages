@@ -1,11 +1,13 @@
 
-n = 100;r = 0.01; % frequency and radius of cage vertices
+n = 25;r = 0.01; % frequency and radius of cage vertices
 t = linspace(0, 2*pi, 1000); % parameter value
+
 
 % -------------------- Circle ----------------------- %
 % radius = 0.75;
 % x_shape = radius*cos(t);
 % y_shape = radius*sin(t);
+
 
 % -------------------- Heart ----------------------- %
 % x_shape = 0.08*(16*sin(t).^3);
@@ -54,14 +56,13 @@ min_y = min(y_shape);
 max_y = max(y_shape);
 x_scale = (3 - (-3))/(max_x - min_x);
 y_scale = (3 - (-3))/(max_y - min_y);
-x_shape = x_scale*x_shape;
-y_shape = y_scale*y_shape;
+x_shape 
 
 
 
 noise_param = 0;  % param to control deg of randomness in curve
 
-p = [x_shape', y_shape'];
+p = [x_scale*x_shape', y_scale*y_shape'];
 q = curvspace(p,n+1); % generates points that interpolate curve
 xx = q(:, 1) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % x values of curve
 yy = q(:, 2) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % y values of curve
@@ -75,13 +76,13 @@ npts=3*N+2;
 % yres = 5;
 
 
-z = exp(pi*1i*(-10:10)'/10); % vector of circle coordinates for cage vertices
+z = exp(pi*1i*(-50:50)'/50); % vector of circle coordinates for cage vertices
 min_x = min(x_shape);
 max_x = max(x_shape);
 min_y = min(y_shape);
 max_y = max(y_shape);
-x = [min_x-2, max_x+2, max_x+2, min_x-2]; % boundary of region
-y = [min_y-2, min_y-2, max_y+2, max_y+2]; % boundary of region
+x = [-3, 3, 3, -3]; % boundary of region
+y = [-3, -3, 3, 3]; % boundary of region
 
 % https://www.mathworks.com/help/matlab/ref/polyshape.html %
 % ---------------- setting up cage vertices --------------------- %
@@ -104,7 +105,7 @@ connectivity = tr.ConnectivityList; %row number is triangle id, rows contain ver
 % https://www.mathworks.com/help/pde/ug/fegeometry.html
 
 gm = fegeometry(tr);
-gm = generateMesh(gm, Hmax = 1, Hmin= 0.015);
+gm = generateMesh(gm, Hmax = 0.2, Hmin= 0.001);
 numelements = size(gm.Mesh.Elements, 2);
 numnodes = size(gm.Mesh.Nodes, 2);
         % elements is 6 x (number of triangles)
@@ -122,9 +123,9 @@ end
 boundaryPts = findNodes(gm.Mesh, "region", "Edge",[1 2 3 4]);
 
 
-neighborsMatrix = zeros(numnodes, numnodes);
+neighborsMatrix = zeros(numnodes);
 %neighborsMatrix(i, j) = neighborsMatrix(j, i) == 1 if vertex i and j share an edge, and 0 otherwise
-cotangents = zeros(numnodes, numnodes);
+cotangents = zeros(numnodes);
 % cotangents(i, j) = 1/2*cot(alpha(i, j)) + cot(beta(i, j))
 for i = 1:numelements %iterate through the triangles
   v1_id = gm.Mesh.Elements(1, i); v2_id = gm.Mesh.Elements(2, i); v3_id = gm.Mesh.Elements(3, i); %get vertex id's of the triangle
