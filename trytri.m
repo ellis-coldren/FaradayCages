@@ -55,7 +55,8 @@ max_y = max(y_shape);
 x_scale = (3 - (-3))/(max_x - min_x);
 y_scale = (3 - (-3))/(max_y - min_y);
 x_shape = x_scale*x_shape;
-y_shape = y_scale*y_shape;
+y_shape = -y_scale*y_shape;
+% --------------------------------------------------------------- %
 
 
 
@@ -104,7 +105,7 @@ connectivity = tr.ConnectivityList; %row number is triangle id, rows contain ver
 % https://www.mathworks.com/help/pde/ug/fegeometry.html
 
 gm = fegeometry(tr);
-gm = generateMesh(gm, Hmax = 1, Hmin= 0.015);
+gm = generateMesh(gm, Hmax = 0.5, Hmin= 0.001);
 numelements = size(gm.Mesh.Elements, 2);
 numnodes = size(gm.Mesh.Nodes, 2);
         % elements is 6 x (number of triangles)
@@ -122,9 +123,9 @@ end
 boundaryPts = findNodes(gm.Mesh, "region", "Edge",[1 2 3 4]);
 
 
-neighborsMatrix = zeros(numnodes, numnodes);
+neighborsMatrix = sparse(numnodes, numnodes);
 %neighborsMatrix(i, j) = neighborsMatrix(j, i) == 1 if vertex i and j share an edge, and 0 otherwise
-cotangents = zeros(numnodes, numnodes);
+cotangents = sparse(numnodes, numnodes);
 % cotangents(i, j) = 1/2*cot(alpha(i, j)) + cot(beta(i, j))
 for i = 1:numelements %iterate through the triangles
   v1_id = gm.Mesh.Elements(1, i); v2_id = gm.Mesh.Elements(2, i); v3_id = gm.Mesh.Elements(3, i); %get vertex id's of the triangle
@@ -165,7 +166,7 @@ colstodelete = boundaryPts > numnodes;
 boundaryPts(colstodelete) = [];
 
 % creating cotangent Laplacian
-Laplacian_cotangents = zeros(numnodes);
+Laplacian_cotangents = sparse(numnodes, numnodes);
 for i = 1:numnodes
     normalize_value2 = sum(cotangents(i, :));
     Laplacian_cotangents(i, :) = -cotangents(i, :);
@@ -173,7 +174,7 @@ for i = 1:numnodes
 end
 
 a = zeros(numnodes, 1);
-C = zeros(numnodes, numnodes);
+C = sparse(numnodes, numnodes);
 % C(i, i) = 1 if vertex i is on the boundary
 for i =1:size(boundaryPts, 2)
     C(boundaryPts(i), boundaryPts(i)) = 1;
@@ -200,9 +201,12 @@ u_directions = [];
 for j = 1:num_direcs
     u_directions = [u_directions; fieldvec_mag*cos(j*2*pi/num_direcs) fieldvec_mag*sin(j*2*pi/num_direcs)];
 end
+disp(u_directions);
 sol = zeros(numnodes, num_direcs);
 for i=1:num_direcs
     boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
+    disp(boundaryPts_loc(:,1:4));
+    disp(boundaryPts_constraints(:,1:4));
     a(boundaryPts) = boundaryPts_constraints;
     sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
 end
@@ -252,24 +256,25 @@ exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
 toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
 
-bottom_15_percentile = quantile(face_gradient, 0.15);
+bottom_15_percentile = quantile(face_gradient, 0.25);
 bottom_15_percentile
 inside_outside = double(face_gradient <= bottom_15_percentile);
 
+caxis([min(patch_color, [], 'all') max(patch_color, [], 'all')]);
+figure;
+patch(patch_x, patch_y, patch_color);
+colorbar;
 
-figure
-patch(patch_x, patch_y, face_gradient)
+caxis([min(face_gradient), max(face_gradient)]);
+figure;
+patch(patch_x, patch_y, face_gradient);
 % patch(patch_x, patch_y, patch_color)
-colorbar
-
-figure
-patch(patch_x, patch_y, patch_color)
-colorbar
+colorbar;
 
 
-figure
-patch(patch_x, patch_y, inside_outside)
-colorbar
+figure;
+patch(patch_x, patch_y, inside_outside);
+colorbar;
 
 
 

@@ -1,4 +1,4 @@
-n = 100;r = 0.01;
+n = 200;r = 0.01;
 % -------------------- Reading .vec files ----------------------- %
 vecFile = 'fruit.vec';
 vecRead = xmlread(vecFile);
@@ -76,7 +76,7 @@ connectivity = tr.ConnectivityList; %row number is triangle id, rows contain ver
 % https://www.mathworks.com/help/pde/ug/fegeometry.html
 
 gm = fegeometry(tr);
-gm = generateMesh(gm, 'Hmax', 0.5, 'Hmin', 0.01);
+gm = generateMesh(gm, 'Hmax', 0.5, 'Hmin', 0.001);
 numelements = size(gm.Mesh.Elements, 2);
 numnodes = size(gm.Mesh.Nodes, 2);
 pdemesh(gm)
