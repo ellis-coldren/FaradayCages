@@ -41,7 +41,7 @@ y_shape = [];
 
 for i = 0:sketch_edges.getLength-1
     edge = sketch_edges.item(i);
-    % the xywdense has format: (layer(int) x1, y1, w1, x2, y2, w2, ...);
+    % the xywdense has format: xywdense(layer(int) x1, y1, w1, x2, y2, w2, ...);
     densesample = char(edge.getAttribute('curve'));
     sample_substring = regexp(densesample, '[+-]?\d*\.?\d+', 'match');
     sample_double = str2double(sample_substring);
@@ -62,6 +62,7 @@ y_shape = -y_scale*y_shape;
 
 noise_param = 0;  % param to control deg of randomness in curve
 
+% TODO normrnd - matlab gaussian model for sampling
 p = [x_shape', y_shape'];
 q = curvspace(p,n+1); % generates points that interpolate curve
 xx = q(:, 1) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % x values of curve
@@ -201,12 +202,9 @@ u_directions = [];
 for j = 1:num_direcs
     u_directions = [u_directions; fieldvec_mag*cos(j*2*pi/num_direcs) fieldvec_mag*sin(j*2*pi/num_direcs)];
 end
-disp(u_directions);
 sol = zeros(numnodes, num_direcs);
 for i=1:num_direcs
     boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
-    disp(boundaryPts_loc(:,1:4));
-    disp(boundaryPts_constraints(:,1:4));
     a(boundaryPts) = boundaryPts_constraints;
     sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
 end
@@ -257,7 +255,6 @@ toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
 
 bottom_15_percentile = quantile(face_gradient, 0.25);
-bottom_15_percentile
 inside_outside = double(face_gradient <= bottom_15_percentile);
 
 caxis([min(patch_color, [], 'all') max(patch_color, [], 'all')]);
