@@ -65,8 +65,8 @@ noise_param = 0;  % param to control deg of randomness in curve
 % TODO normrnd - matlab gaussian model for sampling
 p = [x_shape', y_shape'];
 q = curvspace(p,n+1); % generates points that interpolate curve
-xx = q(:, 1) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % x values of curve
-yy = q(:, 2) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % y values of curve
+xx = q(:, 1) + normrnd(0, 1, [size(q, 1), 1])*noise_param; % x values of curve
+yy = q(:, 2) + normrnd(0, 1, [size(q, 1), 1])*noise_param; % y values of curve
 c = xx + 1i*yy; % curve as vector of complex coordinates
 
 rr = r*ones(size(c)); % radii of cage vertices as vector
