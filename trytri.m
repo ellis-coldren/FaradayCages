@@ -1,15 +1,17 @@
 
-n = 100;r = 0.01; % frequency and radius of cage vertices
+n = 15;r = 0.01; % frequency and radius of cage vertices
 t = linspace(0, 2*pi, 1000); % parameter value
+
 
 % -------------------- Circle ----------------------- %
 % radius = 0.75;
 % x_shape = radius*cos(t);
 % y_shape = radius*sin(t);
 
+
 % -------------------- Heart ----------------------- %
-% x_shape = 0.08*(16*sin(t).^3);
-% y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
+x_shape = 0.08*(16*sin(t).^3);
+y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 % -------------------- Diamond ----------------------- %
 % a = 0.7;
@@ -29,41 +31,14 @@ t = linspace(0, 2*pi, 1000); % parameter value
 % rr = 0.2;
 % d = 0.5;
 % x_shape = 0.5*((fr-rr)*cos(t)+d*cos(((fr-rr)/rr)*t));
-% y_shape = 0.5*((fr-rr)*sin(t) - d*sin(((fr-rr)/rr)*t));
+% y_shape = 0.5*((fr-rr)*sin(t) - d*sin(((fr-rr)/rr)*t));'
 
-% -------------------- Reading .vec files ----------------------- %
-vecFile = 'fruit.vec';
-vecRead = xmlread(vecFile);
-
-sketch_edges = vecRead.getElementsByTagName('edge');
-x_shape = [];
-y_shape = [];
-
-for i = 0:sketch_edges.getLength-1
-    edge = sketch_edges.item(i);
-    % the xywdense has format: (layer(int) x1, y1, w1, x2, y2, w2, ...);
-    densesample = char(edge.getAttribute('curve'));
-    sample_substring = regexp(densesample, '[+-]?\d*\.?\d+', 'match');
-    sample_double = str2double(sample_substring);
-    x_shape = [x_shape, sample_double(2:3:end)];
-    y_shape = [y_shape, sample_double(3:3:end)];
-end
-min_x = min(x_shape);
-max_x = max(x_shape);
-min_y = min(y_shape);
-max_y = max(y_shape);
-x_scale = (3 - (-3))/(max_x - min_x);
-y_scale = (3 - (-3))/(max_y - min_y);
-x_shape = x_scale*x_shape;
-y_shape = -y_scale*y_shape;
-% --------------------------------------------------------------- %
-
-
-
-noise_param = 0;  % param to control deg of randomness in curve
+noise_param = 0.05;  % param to control deg of randomness in curve
 
 p = [x_shape', y_shape'];
 q = curvspace(p,n+1); % generates points that interpolate curve
+%xx = q(:, 1) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % x values of curve
+%yy = q(:, 2) + ((-1) + (2).*rand(size(q, 1), 1))*noise_param; % y values of curve
 xx = q(:, 1) + normrnd(0, 1, [size(q, 1), 1])*noise_param; % x values of curve
 yy = q(:, 2) + normrnd(0, 1, [size(q, 1), 1])*noise_param; % y values of curve
 c = xx + 1i*yy; % curve as vector of complex coordinates
@@ -76,13 +51,9 @@ npts=3*N+2;
 % yres = 5;
 
 
-z = exp(pi*1i*(-10:10)'/10); % vector of circle coordinates for cage vertices
-min_x = min(x_shape);
-max_x = max(x_shape);
-min_y = min(y_shape);
-max_y = max(y_shape);
-x = [min_x-2, max_x+2, max_x+2, min_x-2]; % boundary of region
-y = [min_y-2, min_y-2, max_y+2, max_y+2]; % boundary of region
+z = exp(pi*1i*(-50:50)'/50); % vector of circle coordinates for cage vertices
+x = [-3, 3, 3, -3]; % boundary of region
+y = [-3, -3, 3, 3]; % boundary of region
 
 % https://www.mathworks.com/help/matlab/ref/polyshape.html %
 % ---------------- setting up cage vertices --------------------- %
@@ -94,8 +65,6 @@ for j = 2:n
     pgon = addboundary(pgon,real(c(j)+rr(j)*z),imag(c(j)+rr(j)*z));
 end
 
-plot(pgon)
-
 % triangulates the region %
 tr = triangulation(pgon);
 points = tr.Points; %row number is vertex id
@@ -105,7 +74,7 @@ connectivity = tr.ConnectivityList; %row number is triangle id, rows contain ver
 % https://www.mathworks.com/help/pde/ug/fegeometry.html
 
 gm = fegeometry(tr);
-gm = generateMesh(gm, Hmax = 0.5, Hmin= 0.001);
+gm = generateMesh(gm, Hmax = 0.2, Hmin= 0.001);
 numelements = size(gm.Mesh.Elements, 2);
 numnodes = size(gm.Mesh.Nodes, 2);
         % elements is 6 x (number of triangles)
@@ -123,9 +92,9 @@ end
 boundaryPts = findNodes(gm.Mesh, "region", "Edge",[1 2 3 4]);
 
 
-neighborsMatrix = sparse(numnodes, numnodes);
+neighborsMatrix = zeros(numnodes);
 %neighborsMatrix(i, j) = neighborsMatrix(j, i) == 1 if vertex i and j share an edge, and 0 otherwise
-cotangents = sparse(numnodes, numnodes);
+cotangents = zeros(numnodes);
 % cotangents(i, j) = 1/2*cot(alpha(i, j)) + cot(beta(i, j))
 for i = 1:numelements %iterate through the triangles
   v1_id = gm.Mesh.Elements(1, i); v2_id = gm.Mesh.Elements(2, i); v3_id = gm.Mesh.Elements(3, i); %get vertex id's of the triangle
@@ -166,7 +135,7 @@ colstodelete = boundaryPts > numnodes;
 boundaryPts(colstodelete) = [];
 
 % creating cotangent Laplacian
-Laplacian_cotangents = sparse(numnodes, numnodes);
+Laplacian_cotangents = zeros(numnodes);
 for i = 1:numnodes
     normalize_value2 = sum(cotangents(i, :));
     Laplacian_cotangents(i, :) = -cotangents(i, :);
@@ -174,7 +143,8 @@ for i = 1:numnodes
 end
 
 a = zeros(numnodes, 1);
-C = sparse(numnodes, numnodes);
+q = zeros(numnodes, 1);
+C = zeros(numnodes, numnodes);
 % C(i, i) = 1 if vertex i is on the boundary
 for i =1:size(boundaryPts, 2)
     C(boundaryPts(i), boundaryPts(i)) = 1;
@@ -185,32 +155,35 @@ num_cagepts = size(cagePts, 2);
 % get the next cage vertex
 % C(i, i) = -1 and C(i, next) = 1
 % so that all cage vertices are equal
-for i = 1:num_cagepts
+for i = 1:num_cagepts-1
     next = mod(i, num_cagepts)+1;
-    C(cagePts(i), cagePts(i)) = -1;
-    C(cagePts(i), cagePts(next)) = 1;
+    C(cagePts(i), cagePts(i)) = 1;
+    C(cagePts(i), cagePts(next)) = -1;
 end
 
 % coordinates of the boundary points
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 
 %%% -------------------for multiple direction---------------------------- %%%
-num_direcs = 15;    % num directions to test
-fieldvec_mag = 1;
-u_directions = [];
+
+num_direcs = 1;    % num directions to test
+fieldvec_mag = 6*sqrt(2);
+u_directions = [];  % A matrix of all vector field directions to test
 for j = 1:num_direcs
     u_directions = [u_directions; fieldvec_mag*cos(j*2*pi/num_direcs) fieldvec_mag*sin(j*2*pi/num_direcs)];
 end
-disp(u_directions);
-sol = zeros(numnodes, num_direcs);
+
+sol = zeros(numnodes, num_direcs);  % Store all solutions in an array (each column is the values for each direction)
 for i=1:num_direcs
     boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
-    disp(boundaryPts_loc(:,1:4));
-    disp(boundaryPts_constraints(:,1:4));
     a(boundaryPts) = boundaryPts_constraints;
-    sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+    RHS = [q; a];
+    LHS = [Laplacian_cotangents C.'; C zeros(numnodes, numnodes)];
+    temp = (RHS\LHS).';
+    sol(:, i) = temp(1:(size(temp,1)/2), :);
+    %disp(sol);
 end
-size(sol)
+
 %%% -----------------------------------------------------------------%%%
 
 %%% -------------------for one direction---------------------------- %%%
@@ -224,9 +197,9 @@ size(sol)
 patch_x = []; %holds the x values of the triangle vertices
 patch_y = []; %holds the y values of the triangle vertices
 patch_color = []; %holds the interpolated value of sol of the patch
-face_gradient = []; % holds the magnitude of the face gradient of the patch
-for i = 1:numelements
-    v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
+face_gradient = []; % holds the maximum magnitude of the face gradient of the patch
+for i = 1:numelements   % Iterate over all mesh elements (tris)
+    v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);   % Query vertex ids and values for each tri
     v1 = gm.Mesh.Nodes(:, v1_id);v2 = gm.Mesh.Nodes(:, v2_id);v3 = gm.Mesh.Nodes(:, v3_id);
 
     patch_x = [patch_x, [v1(1);v2(1);v3(1)]];
@@ -235,63 +208,105 @@ for i = 1:numelements
     A = [(v1-v2); 0];
     B = [(v1-v3); 0];
     twoAT = norm(cross(A, B));
-    
+
+    % ?????????
     B2 = (v1-v3)/twoAT;B2 = [-B2(2), B2(1)];
     B3 = (v2-v1)/twoAT;B3 = [-B3(2), B3(1)];
-
-    for i = 1:num_direcs
-        grad_face = (sol(v2_id, i) - sol(v1_id, i))*B2 + (sol(v3_id, i)-sol(v1_id, i))*B3;
-        if i == 1
+    
+    % Get max gradient norm of tri given field direcs
+    for j=1:num_direcs
+        grad_face = (sol(v2_id, j) - sol(v1_id, j))*B2 + (sol(v3_id, j)-sol(v1_id, j))*B3;  % Get gradient value over tri
+        if j == 1
             norm_grad = norm(grad_face);
         else
-            norm_grad = max(norm_grad, norm(grad_face));
+            norm_grad = max(norm_grad, norm(grad_face));    % Take only max norm of gradient
         end
     end
-
-    face_gradient = [face_gradient; norm_grad];
-    patch_color = [patch_color, [sol(v1_id, 1); sol(v2_id, 1); sol(v3_id, 1)]];
+    
+    face_gradient = [face_gradient; norm(grad_face)];
+    patch_color = [patch_color, [sol(v1_id, 1); sol(v2_id, 1); sol(v3_id, 1)]]; % Each tri gets three values to be used in barycentric color calcs
 end
 
+%%% -------------------setting up grid---------------------------- %%%
+x = linspace(-3, 3, 400); y = linspace(-3, 3, 400);
+[xGrid, yGrid] = meshgrid(x, y);
+% https://www.mathworks.com/help/matlab/ref/scatteredinterpolant.html
+F = scatteredInterpolant((gm.Mesh.Nodes(1,1:numnodes))', (gm.Mesh.Nodes(2,1:numnodes))', sol(:, 1), 'linear');  % Interpolate sol linearly over node space
+tri_to_grid = F(xGrid, yGrid);  % Plot F over a grid
+[grad_xx, grad_yy] = gradient(tri_to_grid, 6/100, 6/100);   % Calculate vector gradients across grid
+magFX_grid = sqrt(grad_xx.^2 + grad_yy.^2); % Retrieve magnitudes of grid vector gradients
+% Snap values that are too big to a quantile value
+exp_quantiles = quantile(magFX_grid, [0.025, 0.75], "all");
+toobig = magFX_grid>exp_quantiles(2);
+magFX_grid(toobig) = exp_quantiles(2);
+% Store all values below a specified quantile
+bottom_10_percentile = quantile(magFX_grid, 0.08, "all");
+inside_outside = double(magFX_grid <= bottom_10_percentile);    % Stores all values below a specified percentile, otherwise gives 
+
+% 1: Graphs magnitude of field on a standard grid
+figure;
+imagesc(magFX_grid);
+%quiver(grad_xx, grad_yy);
+axis xy;
+colorbar;
+
+% n = 10;
+% kernel = ones(n)/n.^2;
+% inside_outside_conv = conv2(inside_outside, kernel,'same') ;
+
+% 2: Graphs ONLY proposed inside and outside regions
+figure;
+imagesc(inside_outside);    
+%quiver(grad_xx, grad_yy);
+axis xy;
+colorbar;
+
+% 3: Graphs inside and outside over grid with a contour at sol = 0.5
+figure;
+contour(xGrid, yGrid, inside_outside, [0.5 0.5], 'k', 'LineWidth', 2);
+
+%%% -----------------------------------------------------------------%%%
+% Apply the same snapping and inside determination over triangulated values
 exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
 toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
 
-bottom_15_percentile = quantile(face_gradient, 0.25);
-bottom_15_percentile
-inside_outside = double(face_gradient <= bottom_15_percentile);
+bottom_10_percentile = quantile(face_gradient, 0.1);
+inside_outside = double(face_gradient <= bottom_10_percentile);
 
-caxis([min(patch_color, [], 'all') max(patch_color, [], 'all')]);
-figure;
-patch(patch_x, patch_y, patch_color);
-colorbar;
-
-caxis([min(face_gradient), max(face_gradient)]);
-figure;
-patch(patch_x, patch_y, face_gradient);
+% 4: Graphs face gradients over triangulation
+figure
+patch(patch_x, patch_y, face_gradient)
 % patch(patch_x, patch_y, patch_color)
-colorbar;
+colorbar
 
+% 5: Graphs solution values with greatest gradients over triangulation
+figure
+patch(patch_x, patch_y, patch_color)
+colorbar
 
-figure;
-patch(patch_x, patch_y, inside_outside);
-colorbar;
+% 6: Graphs inside-outside of triangulation
+figure
+patch(patch_x, patch_y, inside_outside)
+colorbar
 
-
-
+% Average the inside-outside values around each vertex to get vertex values
 vertex_values = zeros(numnodes, 1); % Initialize vertex values
 vertex_counts = zeros(numnodes, 1); % To keep track of how many faces contribute to each vertex
 
 for i = 1:size(inside_outside)
     face = gm.Mesh.Elements(1:3, i);
-    vertex_values(face) = vertex_values(face) + face_gradient(i); % Accumulate face value for vertices
+    vertex_values(face) = vertex_values(face) + inside_outside(i); % Accumulate face value for vertices
     vertex_counts(face) = vertex_counts(face) + 1; % Count contributions to each vertex
 end
 vertex_values = vertex_values ./ vertex_counts;
 
+x_2 = linspace(-3, 3, 150); y_2 = linspace(-3, 3, 150);
+[xGrid_2, yGrid_2] = meshgrid(x_2, y_2);    % Convert graph queries into a matrix
+F_2 = scatteredInterpolant((gm.Mesh.Nodes(1,1:numnodes))', (gm.Mesh.Nodes(2,1:numnodes))', vertex_values, 'linear');    % Linearly interpolate vertex values over node space 
+inside_grid = F_2(xGrid_2, yGrid_2);
+
+% 7: Graphs interpolated vertex values with a contour at 0.5
 figure;
-tricontf(gm.Mesh.Nodes(1,1:numnodes)', gm.Mesh.Nodes(2,1:numnodes)', gm.Mesh.Elements(1:3, :)', vertex_values, [0.5 0.5], 'k');
-
-
-
-
-
+contour(xGrid_2, yGrid_2, inside_grid, [0.5 0.5], 'k', 'LineWidth', 2);
+colorbar;
