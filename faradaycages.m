@@ -1,20 +1,20 @@
-n = 15; %number of wires
+n = 30; %number of wires
 r = 0.02; %radius of wires
 t = linspace(0, 2*pi, 1000); %setting parameter t from 0 to 2pi
 
 %Circle
-% radius = 0.75;
-% x = radius*cos(t);
-% y = radius*sin(t);
+radius = 0.75;
+x = radius*cos(t);
+y = radius*sin(t);
 
 %Heart
 % x = 0.08*(16*sin(t).^3);
 % y = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 %Diamond
-a = 0.7;
-x = a*cos(t).^3;
-y = a*sin(t).^3;
+% a = 0.7;
+% x = a*cos(t).^3;
+% y = a*sin(t).^3;
 
 %Rose Curve
 % a = 0.6;
@@ -69,7 +69,7 @@ d = X(1:2*N+1:end); X(1:2*N+1:end) = [];
 a = X(1:2:end); b=X(2:2:end);
 
 
-x = linspace(-1.4, 2.2, 120); y = linspace(-1.8, 1.8, 120);
+x = linspace(-1.8, 1.8, 120); y = linspace(-1.8, 1.8, 120);
 [xx, yy] = meshgrid(x, y); zz=xx+1i*yy; 
 % allows for multiple point charges
 uu = 0;
@@ -105,11 +105,12 @@ for j=1:n, uu(abs(zz-c(j))<rr(j)) = NaN; end
 z = exp(pi*1i*(-50:50)'/50);
 for j=1:n, disk = c(j)+rr(j)*z; fill(real(disk), imag(disk), [1 .7 .7])
     hold on, plot(disk, '-r'), end
-contour(xx, yy, real(uu), -2:.1:2), colormap([0 0 0]), axis([-1.4 2.2 -1.8 1.8])
+contour(xx, yy, real(uu), -2:.1:2), colormap([0 0 0]), axis([-1.8 1.8 -1.8 1.8])
 axis square, plot(real(zs), imag(zs), '.r')
 %, plot(real(zs(2)), imag(zs(2)), '.r')
 figure;
     %quiver(grad_xx, grad_yy);
     imagesc(magFX_grid);
+    set(gca, 'YDir', 'normal'); 
 colorbar;
 axis equal

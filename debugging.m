@@ -1,7 +1,7 @@
 
-n = 15;r = 0.01; % frequency and radius of cage vertices
+n = 20;r = 0.01; % frequency and radius of cage vertices
 t = linspace(0, 2*pi, 1000); % parameter value
-using_vec = 1;
+
 
 % -------------------- Circle ----------------------- %
 radius = 0.75;
@@ -35,7 +35,6 @@ y_shape = radius*sin(t);
 % -------------------- Reading .vec files ----------------------- %
 % vecFile = 'fruit.vec';
 % vecRead = xmlread(vecFile);
-% using_vec = 0;
 % 
 % sketch_edges = vecRead.getElementsByTagName('edge');
 % x_shape = [];
@@ -70,23 +69,16 @@ y_shape = radius*sin(t);
 % y_scale = (3 - (-3))/(max_y - min_y);
 % x_shape = x_scale*x_shape;
 % y_shape = -y_scale*y_shape;
-
 % --------------------------------------------------------------- %
 
 
-
-noise_param = 0;  % param to control deg of randomness in curve
-
-% TODO normrnd - matlab gaussian model for sampling
 p = [x_shape', y_shape'];
-q = curvspace(p,n+1); % generates points that interpolate curve
-q = unique(q, 'rows')
-xx = q(:, 1) + normrnd(0, 0.5, [size(q, 1), 1])*noise_param; % x values of curve
-yy = q(:, 2) + normrnd(0, 0.5, [size(q, 1), 1])*noise_param; % y values of curve
-if using_vec == 0
-    xx = p(:, 1)+ normrnd(0, 0.5, [size(p, 1), 1])*noise_param;
-    yy = p(:, 2) + normrnd(0, 0.5, [size(p, 1), 1])*noise_param;;
-end
+% q = curvspace(p,n+1); % generates points that interpolate curve
+xx = q(:, 1); % x values of curve
+yy = q(:, 2); % y values of curve
+% xx = p(:, 1);
+% yy = p(:, 2);
+
 c = xx + 1i*yy; % curve as vector of complex coordinates
 
 rr = r*ones(size(c)); % radii of cage vertices as vector
@@ -110,12 +102,12 @@ y = [min_y-2, min_y-2, max_y+2, max_y+2]; % boundary of region
 
 % connects vertices of x and y, adds hole where first cage vertex is (c(1) is the center of the cage point, + rr(1)*z draws a circle with radius rr(1) around it) %
 pgon = polyshape({x, real(c(1)+rr(1)*z)}, {y, imag(c(1)+rr(1)*z)}); 
-for j = 2:length(c)-1
+for j = 2:length(c)
     % adds another hole for each cage vertex %
     pgon = addboundary(pgon,real(c(j)+rr(j)*z),imag(c(j)+rr(j)*z));
 end
-
-
+figure;
+plot(pgon);
 % triangulates the region %
 tr = triangulation(pgon);
 points = tr.Points; %row number is vertex id
@@ -135,9 +127,16 @@ numnodes = size(gm.Mesh.Nodes, 2);
 
 % this finds which vertices of our mesh lie on a cage vertex:
 cagePts = findNodes(gm.Mesh,"radius",[real(c(1)), imag(c(1))], rr(1));
-for j = 1:length(c)-1
+for j = 1:length(c)
     cagePts = [cagePts findNodes(gm.Mesh,"radius",[real(c(j)), imag(c(j))], rr(j))];
 end
+
+figure;
+plot(gm.Mesh.Nodes(1, cagePts), gm.Mesh.Nodes(2, cagePts), 'o', 'LineStyle', 'none');
+xlabel('Real Part');
+ylabel('Imaginary Part');
+title('Plot of Complex Numbers');
+grid on;
 
 % this finds which vertices of our mesh lie on the boundary:
 boundaryPts = findNodes(gm.Mesh, "region", "Edge",[1 2 3 4]);
@@ -214,30 +213,30 @@ end
 % coordinates of the boundary points
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 
-%%% -------------------for multiple direction---------------------------- %%%
-% num_direcs = 15;    % num directions to test
-% fieldvec_mag = 1;
-% u_directions = [];
-% for j = 1:num_direcs
-%     u_directions = [u_directions; fieldvec_mag*cos(j*2*pi/num_direcs) fieldvec_mag*sin(j*2*pi/num_direcs)];
-% end
-% sol = zeros(numnodes, num_direcs);
-% for i=1:num_direcs
-%     boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
-%     a(boundaryPts) = boundaryPts_constraints;
-%     sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-% end
+%%% -------------------for multiple directions---------------------------- %%%
+
+num_direcs = 15;    % num directions to test
+fieldvec_mag = 1;
+u_directions = [];
+for j = 1:num_direcs
+    u_directions = [u_directions; fieldvec_mag*cos(j*2*pi/num_direcs) fieldvec_mag*sin(j*2*pi/num_direcs)];
+end
+sol = zeros(numnodes, num_direcs);
+for i=1:num_direcs
+    boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
+    a(boundaryPts) = boundaryPts_constraints;
+    sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+end
 
 %%% -----------------------------------------------------------------%%%
 
 %%% -------------------for one direction---------------------------- %%%
-u = [1 1];
-boundaryPts_constraints = u*boundaryPts_loc;
-a(boundaryPts) = boundaryPts_constraints;
-sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
-num_direcs = 1;
+% num_direcs=1;
+% u = [1 1];
+% boundaryPts_constraints = u*boundaryPts_loc;
+% a(boundaryPts) = boundaryPts_constraints;
+% sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
 %%% -----------------------------------------------------------------%%%
-
 
 patch_x = []; %holds the x values of the triangle vertices
 patch_y = []; %holds the y values of the triangle vertices
@@ -266,7 +265,7 @@ for i = 1:numelements
         end
     end
 
-    face_gradient = [face_gradient; norm_grad];
+    face_gradient = [face_gradient; norm(grad_face)];
     patch_color = [patch_color, [sol(v1_id, 1); sol(v2_id, 1); sol(v3_id, 1)]];
 end
 
@@ -274,25 +273,23 @@ exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
 toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
 
-bottom_15_percentile = quantile(face_gradient, 0.25);
-inside_outside = double(face_gradient <= bottom_15_percentile);
+bottom_10_percentile = quantile(face_gradient, 0.3);
+inside_outside = double(face_gradient <= bottom_10_percentile);
 
 
-figure;
-patch(patch_x, patch_y, face_gradient);
-title('Max Mag Grad');
-colorbar;
+figure
+patch(patch_x, patch_y, face_gradient)
+% patch(patch_x, patch_y, patch_color)
+colorbar
 
-figure;
-patch(patch_x, patch_y, patch_color);
-title('QuadProg');
-colorbar;
+figure
+patch(patch_x, patch_y, patch_color)
+colorbar
 
 
-figure;
-patch(patch_x, patch_y, inside_outside);
-title('Inside/Outside');
-colorbar;
+figure
+patch(patch_x, patch_y, inside_outside)
+colorbar
 
 
 
@@ -301,7 +298,7 @@ vertex_counts = zeros(numnodes, 1); % To keep track of how many faces contribute
 
 for i = 1:size(inside_outside)
     face = gm.Mesh.Elements(1:3, i);
-    vertex_values(face) = vertex_values(face) + face_gradient(i); % Accumulate face value for vertices
+    vertex_values(face) = vertex_values(face) + inside_outside(i); % Accumulate face value for vertices
     vertex_counts(face) = vertex_counts(face) + 1; % Count contributions to each vertex
 end
 vertex_values = vertex_values ./ vertex_counts;

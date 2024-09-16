@@ -4,13 +4,13 @@ t = linspace(0, 2*pi, 1000); % parameter value
 using_vec = 1;
 
 % -------------------- Circle ----------------------- %
-radius = 0.75;
-x_shape = radius*cos(t);
-y_shape = radius*sin(t);
+% radius = 0.75;
+% x_shape = radius*cos(t);
+% y_shape = radius*sin(t);
 
 % -------------------- Heart ----------------------- %
-% x_shape = 0.08*(16*sin(t).^3);
-% y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
+x_shape = 0.08*(16*sin(t).^3);
+y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 % -------------------- Diamond ----------------------- %
 % a = 0.7;
@@ -59,8 +59,8 @@ y_shape = radius*sin(t);
 %     y_sample = sample_double(3:3:end);
 %     y_to_add = y_sample(y_indices);
 % 
-%     x_shape = [x_shape, x_to_add];
-%     y_shape = [y_shape, y_to_add];
+%     x_shape = [x_shape, x_sample];
+%     y_shape = [y_shape, y_sample];
 % end
 % min_x = min(x_shape);
 % max_x = max(x_shape);
@@ -80,15 +80,13 @@ noise_param = 0;  % param to control deg of randomness in curve
 % TODO normrnd - matlab gaussian model for sampling
 p = [x_shape', y_shape'];
 q = curvspace(p,n+1); % generates points that interpolate curve
-q = unique(q, 'rows')
-xx = q(:, 1) + normrnd(0, 0.5, [size(q, 1), 1])*noise_param; % x values of curve
-yy = q(:, 2) + normrnd(0, 0.5, [size(q, 1), 1])*noise_param; % y values of curve
+xx = q(:, 1) + normrnd(0, 1, [size(q, 1), 1])*noise_param; % x values of curve
+yy = q(:, 2) + normrnd(0, 1, [size(q, 1), 1])*noise_param; % y values of curve
 if using_vec == 0
-    xx = p(:, 1)+ normrnd(0, 0.5, [size(p, 1), 1])*noise_param;
-    yy = p(:, 2) + normrnd(0, 0.5, [size(p, 1), 1])*noise_param;;
+    xx = p(:, 1)+ normrnd(0, 1, [size(p, 1), 1])*noise_param;
+    yy = p(:, 2) + normrnd(0, 1, [size(p, 1), 1])*noise_param;;
 end
 c = xx + 1i*yy; % curve as vector of complex coordinates
-
 rr = r*ones(size(c)); % radii of cage vertices as vector
 N = max(0, round(4+.5*log10(r)));
 npts=3*N+2;
@@ -97,7 +95,7 @@ npts=3*N+2;
 % yres = 5;
 
 
-z = exp(pi*1i*(-50:50)'/50); % vector of circle coordinates for cage vertices
+z = exp(pi*1i*(-10:10)'/10); % vector of circle coordinates for cage vertices
 min_x = min(x_shape);
 max_x = max(x_shape);
 min_y = min(y_shape);
@@ -115,7 +113,6 @@ for j = 2:length(c)-1
     pgon = addboundary(pgon,real(c(j)+rr(j)*z),imag(c(j)+rr(j)*z));
 end
 
-
 % triangulates the region %
 tr = triangulation(pgon);
 points = tr.Points; %row number is vertex id
@@ -125,7 +122,7 @@ connectivity = tr.ConnectivityList; %row number is triangle id, rows contain ver
 % https://www.mathworks.com/help/pde/ug/fegeometry.html
 
 gm = fegeometry(tr);
-gm = generateMesh(gm, Hmax = 0.2, Hmin= 0.001);
+gm = generateMesh(gm, Hmax = 0.5, Hmin= 0.001);
 numelements = size(gm.Mesh.Elements, 2);
 numnodes = size(gm.Mesh.Nodes, 2);
         % elements is 6 x (number of triangles)
@@ -135,13 +132,12 @@ numnodes = size(gm.Mesh.Nodes, 2);
 
 % this finds which vertices of our mesh lie on a cage vertex:
 cagePts = findNodes(gm.Mesh,"radius",[real(c(1)), imag(c(1))], rr(1));
-for j = 1:length(c)-1
+for j = 1:length(c)
     cagePts = [cagePts findNodes(gm.Mesh,"radius",[real(c(j)), imag(c(j))], rr(j))];
 end
 
 % this finds which vertices of our mesh lie on the boundary:
 boundaryPts = findNodes(gm.Mesh, "region", "Edge",[1 2 3 4]);
-
 
 neighborsMatrix = sparse(numnodes, numnodes);
 %neighborsMatrix(i, j) = neighborsMatrix(j, i) == 1 if vertex i and j share an edge, and 0 otherwise
@@ -227,7 +223,7 @@ boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 %     a(boundaryPts) = boundaryPts_constraints;
 %     sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
 % end
-
+% size(sol)
 %%% -----------------------------------------------------------------%%%
 
 %%% -------------------for one direction---------------------------- %%%
@@ -235,6 +231,13 @@ u = [1 1];
 boundaryPts_constraints = u*boundaryPts_loc;
 a(boundaryPts) = boundaryPts_constraints;
 sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+
+LHS = [Laplacian_cotangents, C.'; 
+      C, sparse(size(C, 1), size(C, 1))];
+cond(Laplacian_cotangents)
+RHS = [zeros(numnodes, 1); a];
+x_v = lsqr(LHS, RHS);
+sol_2 = x_v(1:numnodes);
 num_direcs = 1;
 %%% -----------------------------------------------------------------%%%
 
@@ -242,6 +245,7 @@ num_direcs = 1;
 patch_x = []; %holds the x values of the triangle vertices
 patch_y = []; %holds the y values of the triangle vertices
 patch_color = []; %holds the interpolated value of sol of the patch
+patch_color_2 = [];
 face_gradient = []; % holds the magnitude of the face gradient of the patch
 for i = 1:numelements
     v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
@@ -268,8 +272,11 @@ for i = 1:numelements
 
     face_gradient = [face_gradient; norm_grad];
     patch_color = [patch_color, [sol(v1_id, 1); sol(v2_id, 1); sol(v3_id, 1)]];
+    patch_color_2 = [patch_color_2, [sol_2(v1_id, 1); sol_2(v2_id, 1); sol_2(v3_id, 1)]];
+    patch_color_3 = [patch_color_3, [sol_3(v1_id, 1); sol_3(v2_id, 1); sol_3(v3_id, 1)]];
 end
 
+disp([gm.Mesh.Nodes(:, boundaryPts)', sol(boundaryPts)]);
 exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
 toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
@@ -277,15 +284,26 @@ face_gradient(toobig) = exp_quantiles(2);
 bottom_15_percentile = quantile(face_gradient, 0.25);
 inside_outside = double(face_gradient <= bottom_15_percentile);
 
-
+max(patch_color, [], 'all')
 figure;
-patch(patch_x, patch_y, face_gradient);
-title('Max Mag Grad');
+patch(patch_x, patch_y, patch_color);
+title('QuadProg Solve');
 colorbar;
 
 figure;
-patch(patch_x, patch_y, patch_color);
-title('QuadProg');
+patch(patch_x, patch_y, patch_color_2);
+title('KKT Solve (LHS\RHS)');
+colorbar;
+
+figure;
+patch(patch_x, patch_y, patch_color_3);
+title('KKT Solve (lsqr)');
+colorbar;
+
+
+figure;
+patch(patch_x, patch_y, face_gradient);
+title('Mag Grad');
 colorbar;
 
 
