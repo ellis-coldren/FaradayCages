@@ -1,21 +1,27 @@
 
-n = 15;r = 0.01; % frequency and radius of cage vertices
+n = 2;r = 0.01; % frequency and radius of cage vertices
 t = linspace(0, 2*pi, 1000); % parameter value
 using_vec = 1;
 
 % -------------------- Circle ----------------------- %
-% radius = 0.75;
-% x_shape = radius*cos(t);
-% y_shape = radius*sin(t);
+radius = 0.75;
+x_shape = radius*cos(t);
+y_shape = radius*sin(t);
+
+% x_shape = [x_shape radius*cos(t) + 0.5];
+% y_shape = [y_shape radius*sin(t)];
 
 % -------------------- Heart ----------------------- %
-x_shape = 0.08*(16*sin(t).^3);
-y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
+% x_shape = 0.08*(16*sin(t).^3);
+% y_shape = 0.08*(13*cos(t) - 5*cos(2*t) - 2*cos(3*t) - cos(4*t));
 
 % -------------------- Diamond ----------------------- %
 % a = 0.7;
 % x_shape = a*cos(t).^3;
 % y_shape = a*sin(t).^3;
+
+% x_shape = [x_shape a*cos(t).^3 + 0.5];
+% y_shape = [y_shape a*sin(t).^3];
 
 % -------------------- Rose curve ----------------------- %
 % a = 0.6;
@@ -94,14 +100,18 @@ npts=3*N+2;
 % xres = 5;
 % yres = 5;
 
-
-z = exp(pi*1i*(-10:10)'/10); % vector of circle coordinates for cage vertices
+z = exp(pi*1i*(-10:10)'/10);
+% z = 1;
+% z = [1 -1]; % vector of circle coordinates for cage vertices
 min_x = min(x_shape);
 max_x = max(x_shape);
 min_y = min(y_shape);
 max_y = max(y_shape);
-x = [min_x-2, max_x+2, max_x+2, min_x-2]; % boundary of region
-y = [min_y-2, min_y-2, max_y+2, max_y+2]; % boundary of region
+% x = [min_x-2, max_x+2, max_x+2, min_x-2]; % boundary of region
+% y = [min_y-2, min_y-2, max_y+2, max_y+2]; % boundary of region
+
+x = [-1, 1, 1, -1]; % boundary of region
+y = [-1, -1, 1, 1]; % boundary of region
 
 % https://www.mathworks.com/help/matlab/ref/polyshape.html %
 % ---------------- setting up cage vertices --------------------- %
@@ -113,6 +123,12 @@ for j = 2:length(c)-1
     pgon = addboundary(pgon,real(c(j)+rr(j)*z),imag(c(j)+rr(j)*z));
 end
 
+% pgon = polyshape({x, real(c(1))}, {y, imag(c(1))}); 
+% for j = 2:length(c)-1
+%     % adds another hole for each cage vertex %
+%     pgon = addboundary(pgon,real(c(j)),imag(c(j)));
+% end
+
 % triangulates the region %
 tr = triangulation(pgon);
 points = tr.Points; %row number is vertex id
@@ -122,7 +138,9 @@ connectivity = tr.ConnectivityList; %row number is triangle id, rows contain ver
 % https://www.mathworks.com/help/pde/ug/fegeometry.html
 
 gm = fegeometry(tr);
-gm = generateMesh(gm, Hmax = 0.5, Hmin= 0.001);
+gm = generateMesh(gm, Hmax = 2, Hmin= 0.01);
+figure;
+pdemesh(gm, 'NodeLabels','on');
 numelements = size(gm.Mesh.Elements, 2);
 numnodes = size(gm.Mesh.Nodes, 2);
         % elements is 6 x (number of triangles)
@@ -145,7 +163,7 @@ cotangents = sparse(numnodes, numnodes);
 % cotangents(i, j) = 1/2*cot(alpha(i, j)) + cot(beta(i, j))
 for i = 1:numelements %iterate through the triangles
   v1_id = gm.Mesh.Elements(1, i); v2_id = gm.Mesh.Elements(2, i); v3_id = gm.Mesh.Elements(3, i); %get vertex id's of the triangle
-
+  fprintf('triangle = %d %d %d \n', v1_id, v2_id, v3_id);
   v1 = gm.Mesh.Nodes(:, v1_id);v2 = gm.Mesh.Nodes(:, v2_id);v3 = gm.Mesh.Nodes(:, v3_id); % get vertex locations
   
   neighborsMatrix(v1_id, v2_id) = 1;neighborsMatrix(v2_id, v3_id) = 1;neighborsMatrix(v3_id, v1_id) = 1;
@@ -154,13 +172,16 @@ for i = 1:numelements %iterate through the triangles
 
   cotangents(v1_id, v2_id) = cotangents(v1_id, v2_id) + 0.5*cot(acos(dot(v1-v3, v2-v3)/(norm(v1-v3)*norm(v2-v3))));
   cotangents(v2_id, v1_id) = cotangents(v1_id, v2_id);
+  fprintf('v1 v2 cotangent \n', full(cotangents(v1_id, v2_id)));
   
   cotangents(v2_id, v3_id) = cotangents(v2_id, v3_id) + 0.5*cot(acos(dot(v2-v1, v3-v1)/(norm(v2-v1)*norm(v3-v1))));
   cotangents(v3_id, v2_id) = cotangents(v2_id, v3_id);
+  fprintf('v3 v2 cotangent \n', full(cotangents(v2_id, v3_id)));
   
   cotangents(v3_id, v1_id) = cotangents(v3_id, v1_id) + 0.5*cot(acos(dot(v3-v2, v1-v2)/(norm(v3-v2)*norm(v1-v2))));
   cotangents(v1_id, v3_id) = cotangents(v3_id, v1_id);
-  
+  fprintf('v1 v3 cotangent \n', full(cotangents(v3_id, v1_id)));
+
 end
 
 % if row or column i is entirely 0, then vertex i is a midpoint
@@ -189,7 +210,7 @@ for i = 1:numnodes
     Laplacian_cotangents(i,i) = normalize_value2;
 end
 
-a = zeros(numnodes, 1);
+
 C = sparse(numnodes, numnodes);
 % C(i, i) = 1 if vertex i is on the boundary
 for i =1:size(boundaryPts, 2)
@@ -201,11 +222,13 @@ num_cagepts = size(cagePts, 2);
 % get the next cage vertex
 % C(i, i) = -1 and C(i, next) = 1
 % so that all cage vertices are equal
-for i = 1:num_cagepts
+for i = 1:(num_cagepts-1)
     next = mod(i, num_cagepts)+1;
     C(cagePts(i), cagePts(i)) = -1;
     C(cagePts(i), cagePts(next)) = 1;
 end
+C = C(any(C, 2), :);
+a = zeros(size(C, 1), 1);
 
 % coordinates of the boundary points
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
@@ -232,12 +255,14 @@ num_direcs = 1;
 boundaryPts_constraints = u*boundaryPts_loc;
 a(boundaryPts) = boundaryPts_constraints;
 sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+
+
+%%% -------------------different KKT Solvers---------------------------- %%%
 LHS = [Laplacian_cotangents, C.'; 
       C, sparse(size(C, 1), size(C, 1))];
-
 RHS = [zeros(numnodes, 1); a];
-x_v = RHS\LHS;
-sol_2 = x_v(1:numnodes)';
+x_v = LHS\RHS;
+sol_2 = x_v(1:numnodes);
 
 x_v = lsqr(LHS, RHS, 1e-6, 2000);
 sol_3 = x_v(1:numnodes);
@@ -246,11 +271,15 @@ x_v = pcg(LHS, RHS);
 sol_4 = x_v(1:numnodes);
 
 
-epsilon = 1e-6;
-LHS_2 = [Laplacian_cotangents + epsilon * speye(numnodes), C.'; 
-      C, sparse(size(C, 1), size(C, 1))];
-x_v = lsqr(LHS_2, RHS);
-sol_5 = x_v(1:numnodes);
+a_2 = zeros(numnodes, 1);
+C_2 = sparse(numnodes, numnodes);
+num_cagepts = size(cagePts, 2);
+for i = 1:num_cagepts
+    next = mod(i, num_cagepts)+1;
+    C_2(cagePts(i), cagePts(i)) = -1;
+    C_2(cagePts(i), cagePts(next)) = 1;
+end
+sol_5 = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C_2,a_2);
 
 %%% -----------------------------------------------------------------%%%
 
@@ -263,6 +292,13 @@ patch_color_3 = [];
 patch_color_4 = [];
 patch_color_5 = [];
 face_gradient = []; % holds the magnitude of the face gradient of the patch
+%disp('LHS = '); disp(full(LHS));
+disp('Cage = '); disp(size(C));
+%disp('Laplacian_cot = '); disp(full(Laplacian_cotangents));
+[V,val] = eigs(LHS,1,'smallestabs');
+disp('eigenvector ='); disp(V);
+disp('eigenvalue = '); disp(val);
+disp(size(LHS));
 for i = 1:numelements
     v1_id = gm.Mesh.Elements(1, i);v2_id = gm.Mesh.Elements(2, i);v3_id = gm.Mesh.Elements(3, i);
     v1 = gm.Mesh.Nodes(:, v1_id);v2 = gm.Mesh.Nodes(:, v2_id);v3 = gm.Mesh.Nodes(:, v3_id);
@@ -294,7 +330,7 @@ for i = 1:numelements
     patch_color_5 = [patch_color_5, [sol_5(v1_id, 1); sol_5(v2_id, 1); sol_5(v3_id, 1)]];
 end
 
-disp([gm.Mesh.Nodes(:, boundaryPts)', sol(boundaryPts)]);
+% disp([gm.Mesh.Nodes(:, boundaryPts)', sol(boundaryPts)]);
 exp_quantiles = quantile(face_gradient, [0.025, 0.75], "all");
 toobig = face_gradient>exp_quantiles(2);
 face_gradient(toobig) = exp_quantiles(2);
@@ -302,7 +338,7 @@ face_gradient(toobig) = exp_quantiles(2);
 bottom_15_percentile = quantile(face_gradient, 0.25);
 inside_outside = double(face_gradient <= bottom_15_percentile);
 
-max(patch_color, [], 'all')
+max(patch_color, [], 'all');
 figure;
 patch(patch_x, patch_y, patch_color);
 title('QuadProg Solve');
@@ -310,7 +346,7 @@ colorbar;
 
 figure;
 patch(patch_x, patch_y, patch_color_2);
-title('KKT Solve (RHS\LHS)');
+title('KKT Solve (LHS\RHS)');
 colorbar;
 
 figure;
@@ -325,7 +361,7 @@ colorbar;
 
 figure;
 patch(patch_x, patch_y, patch_color_5);
-title('KKT Solve (reg term)');
+title('No Boundary');
 colorbar;
 
 

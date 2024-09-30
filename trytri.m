@@ -1,12 +1,14 @@
 
-n = 15;r = 0.01; % frequency and radius of cage vertices
+n = 40;r = 0.01; % frequency and radius of cage vertices
 t = linspace(0, 2*pi, 1000); % parameter value
 using_vec = 1;
 
 % -------------------- Circle ----------------------- %
-radius = 0.75;
-x_shape = radius*cos(t);
-y_shape = radius*sin(t);
+% radius = 0.75;
+% x_shape = radius*cos(t)-0.5;
+% y_shape = radius*sin(t);
+% x_shape = [x_shape, radius*cos(t) + 0.5];
+% y_shape = [y_shape, radius*sin(t)];
 
 % -------------------- Heart ----------------------- %
 % x_shape = 0.08*(16*sin(t).^3);
@@ -33,43 +35,43 @@ y_shape = radius*sin(t);
 % y_shape = 0.5*((fr-rr)*sin(t) - d*sin(((fr-rr)/rr)*t));
 
 % -------------------- Reading .vec files ----------------------- %
-% vecFile = 'fruit.vec';
-% vecRead = xmlread(vecFile);
-% using_vec = 0;
-% 
-% sketch_edges = vecRead.getElementsByTagName('edge');
-% x_shape = [];
-% y_shape = [];
-% 
-% for i = 0:sketch_edges.getLength-1
-%     edge = sketch_edges.item(i);
-%     % the xywdense has format: xywdense(layer(int) x1, y1, w1, x2, y2, w2, ...);
-%     densesample = char(edge.getAttribute('curve'));
-%     sample_substring = regexp(densesample, '[+-]?\d*\.?\d+', 'match');
-%     sample_double = str2double(sample_substring);
-% 
-%     length_x = length(sample_double(2:3:end));
-%     length_y = length(sample_double(3:3:end));
-% 
-%     x_indices = round(linspace(1, length_x, n));
-%     y_indices = round(linspace(1, length_y, n));
-%     
-%     x_sample = sample_double(2:3:end);
-%     x_to_add = x_sample(x_indices);
-%     y_sample = sample_double(3:3:end);
-%     y_to_add = y_sample(y_indices);
-% 
-%     x_shape = [x_shape, x_to_add];
-%     y_shape = [y_shape, y_to_add];
-% end
-% min_x = min(x_shape);
-% max_x = max(x_shape);
-% min_y = min(y_shape);
-% max_y = max(y_shape);
-% x_scale = (3 - (-3))/(max_x - min_x);
-% y_scale = (3 - (-3))/(max_y - min_y);
-% x_shape = x_scale*x_shape;
-% y_shape = -y_scale*y_shape;
+vecFile = 'venndiagram.vec';
+vecRead = xmlread(vecFile);
+using_vec = 0;
+
+sketch_edges = vecRead.getElementsByTagName('edge');
+x_shape = [];
+y_shape = [];
+
+for i = 0:sketch_edges.getLength-1
+    edge = sketch_edges.item(i);
+    % the xywdense has format: xywdense(layer(int) x1, y1, w1, x2, y2, w2, ...);
+    densesample = char(edge.getAttribute('curve'));
+    sample_substring = regexp(densesample, '[+-]?\d*\.?\d+', 'match');
+    sample_double = str2double(sample_substring);
+
+    length_x = length(sample_double(2:3:end));
+    length_y = length(sample_double(3:3:end));
+
+    x_indices = round(linspace(1, length_x, n));
+    y_indices = round(linspace(1, length_y, n));
+    
+    x_sample = sample_double(2:3:end);
+    x_to_add = x_sample(x_indices);
+    y_sample = sample_double(3:3:end);
+    y_to_add = y_sample(y_indices);
+
+    x_shape = [x_shape, x_to_add];
+    y_shape = [y_shape, y_to_add];
+end
+min_x = min(x_shape);
+max_x = max(x_shape);
+min_y = min(y_shape);
+max_y = max(y_shape);
+x_scale = (3 - (-3))/(max_x - min_x);
+y_scale = (3 - (-3))/(max_y - min_y);
+x_shape = x_scale*x_shape;
+y_shape = -y_scale*y_shape;
 
 % --------------------------------------------------------------- %
 
@@ -193,7 +195,6 @@ for i = 1:numnodes
     Laplacian_cotangents(i,i) = normalize_value2;
 end
 
-a = zeros(numnodes, 1);
 C = sparse(numnodes, numnodes);
 % C(i, i) = 1 if vertex i is on the boundary
 for i =1:size(boundaryPts, 2)
@@ -205,11 +206,14 @@ num_cagepts = size(cagePts, 2);
 % get the next cage vertex
 % C(i, i) = -1 and C(i, next) = 1
 % so that all cage vertices are equal
-for i = 1:num_cagepts
+for i = 1:(num_cagepts-1)
     next = mod(i, num_cagepts)+1;
     C(cagePts(i), cagePts(i)) = -1;
     C(cagePts(i), cagePts(next)) = 1;
 end
+C = C(any(C, 2), :);
+a = zeros(size(C, 1), 1);
+
 
 % coordinates of the boundary points
 boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
@@ -225,7 +229,13 @@ boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 % for i=1:num_direcs
 %     boundaryPts_constraints = u_directions(i,:)*boundaryPts_loc;
 %     a(boundaryPts) = boundaryPts_constraints;
-%     sol(:, i) = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+% 
+%     LHS = [Laplacian_cotangents, C.'; 
+%       C, sparse(size(C, 1), size(C, 1))];
+%     RHS = [zeros(numnodes, 1); a];
+%     x_v = LHS\RHS;
+% 
+%     sol(:, i) = x_v(1:numnodes);
 % end
 
 %%% -----------------------------------------------------------------%%%
@@ -234,7 +244,12 @@ boundaryPts_loc = gm.Mesh.Nodes(:, boundaryPts);
 u = [1 1];
 boundaryPts_constraints = u*boundaryPts_loc;
 a(boundaryPts) = boundaryPts_constraints;
-sol = quadprog(Laplacian_cotangents,zeros(numnodes, 1),[],[],C,a);
+
+LHS = [Laplacian_cotangents, C.'; 
+      C, sparse(size(C, 1), size(C, 1))];
+RHS = [zeros(numnodes, 1); a];
+x_v = LHS\RHS;
+sol = x_v(1:numnodes);
 num_direcs = 1;
 %%% -----------------------------------------------------------------%%%
 
@@ -301,13 +316,28 @@ vertex_counts = zeros(numnodes, 1); % To keep track of how many faces contribute
 
 for i = 1:size(inside_outside)
     face = gm.Mesh.Elements(1:3, i);
-    vertex_values(face) = vertex_values(face) + face_gradient(i); % Accumulate face value for vertices
+    vertex_values(face) = vertex_values(face) + inside_outside(i); % Accumulate face value for vertices
     vertex_counts(face) = vertex_counts(face) + 1; % Count contributions to each vertex
 end
 vertex_values = vertex_values ./ vertex_counts;
 
 figure;
-tricontf(gm.Mesh.Nodes(1,1:numnodes)', gm.Mesh.Nodes(2,1:numnodes)', gm.Mesh.Elements(1:3, :)', vertex_values, [0.5 0.5], 'k');
+tricontf(gm.Mesh.Nodes(1,1:numnodes)', gm.Mesh.Nodes(2,1:numnodes)', gm.Mesh.Elements(1:3, :)', vertex_values, [0.5, 0.5], 'k');
+
+for i = 1:size(patch_color)
+    face = gm.Mesh.Elements(1:3, i);
+
+    v1 = gm.Mesh.Nodes(:, face(1));v2 = gm.Mesh.Nodes(:, face(2));v3 = gm.Mesh.Nodes(:, face(3));
+    
+    face_area = 0.5 * abs(det([v1, 1; v2, 1; v3, 1]));
+
+    vertex_values(face) = vertex_values(face) + patch_color(i)*face_area; % Accumulate face value for vertices
+    vertex_counts(face) = vertex_counts(face) + face_area; % Count contributions to each vertex
+end
+vertex_values = vertex_values ./ vertex_counts;
+
+figure;
+tricontf(gm.Mesh.Nodes(1,1:numnodes)', gm.Mesh.Nodes(2,1:numnodes)', gm.Mesh.Elements(1:3, :)', vertex_values, 'k');
 
 
 

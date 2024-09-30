@@ -1,11 +1,12 @@
 n = 30; %number of wires
 r = 0.02; %radius of wires
 t = linspace(0, 2*pi, 1000); %setting parameter t from 0 to 2pi
+using_vec = 1;
 
 %Circle
-radius = 0.75;
-x = radius*cos(t);
-y = radius*sin(t);
+% radius = 0.75;
+% x = radius*cos(t);
+% y = radius*sin(t);
 
 %Heart
 % x = 0.08*(16*sin(t).^3);
@@ -29,11 +30,64 @@ y = radius*sin(t);
 % x = 0.5*((fr-rr)*cos(t)+d*cos(((fr-rr)/rr)*t));
 % y = 0.5*((fr-rr)*sin(t) - d*sin(((fr-rr)/rr)*t));
 
+% -------------------- Reading .vec files ----------------------- %
+vecFile = 'fruit.vec';
+vecRead = xmlread(vecFile);
+using_vec = 0;
+
+sketch_edges = vecRead.getElementsByTagName('edge');
+x_shape = [];
+y_shape = [];
+
+for i = 0:sketch_edges.getLength-1
+    edge = sketch_edges.item(i);
+    % the xywdense has format: xywdense(layer(int) x1, y1, w1, x2, y2, w2, ...);
+    densesample = char(edge.getAttribute('curve'));
+    sample_substring = regexp(densesample, '[+-]?\d*\.?\d+', 'match');
+    sample_double = str2double(sample_substring);
+
+    length_x = length(sample_double(2:3:end));
+    length_y = length(sample_double(3:3:end));
+
+    x_indices = round(linspace(1, length_x, n));
+    y_indices = round(linspace(1, length_y, n));
+    
+    x_sample = sample_double(2:3:end);
+    x_to_add = x_sample(x_indices);
+    y_sample = sample_double(3:3:end);
+    y_to_add = y_sample(y_indices);
+
+    x_shape = [x_shape, x_to_add];
+    y_shape = [y_shape, y_to_add];
+end
+min_x = min(x_shape);
+max_x = max(x_shape);
+min_y = min(y_shape);
+max_y = max(y_shape);
+x_scale = (3 - (-3))/(max_x - min_x);
+y_scale = (3 - (-3))/(max_y - min_y);
+x = x_scale*x_shape;
+y = -y_scale*y_shape;
+
+% --------------------------------------------------------------- %
+
+% p = [x', y'];
+% q = curvspace(p,n+1);
+% xx = q(:, 1);
+% yy = q(:, 2);
+% c = xx + 1i*yy;
+
 p = [x', y'];
-q = curvspace(p,n+1);
+q = curvspace(p,n+1); % generates points that interpolate curve
+q = unique(q, 'rows')
 xx = q(:, 1);
 yy = q(:, 2);
-c = xx + 1i*yy;
+if using_vec == 0
+    disp('using vec');
+    xx = p(:, 1);
+    yy = p(:, 2);
+end
+c = xx + 1i*yy; % curve as vector of complex coordinates
 
 % c = 0.75*exp(2i*pi*(1:n)/n);
 rr = r*ones(size(c));
@@ -44,8 +98,25 @@ circ = exp((1:npts)'*2i*pi/npts);
 z = []; for j=1:n
     z=[z;c(j)+rr(j)*circ]; end
 A = [0; -ones(size(z))];
-zs = [1.5];
 
+figure;
+hold on;
+% plot(real(c), imag(c), 'k-', 'LineWidth', 2); % Plot the main curve
+plot(real(z), imag(z), 'b.'); % Plot the wires
+axis equal;
+axis([-1.8 1.8 -1.8 1.8]);
+grid on;
+title('Curve and Wires - Click to Select Points');
+
+disp('Click on the plot to add points. Press Enter to stop.');
+[x_click, y_click] = ginput; % Capture clicked points
+
+% Convert clicked points to complex numbers
+clicked_points = x_click + 1i*y_click;
+
+% Append clicked points to the zs list
+zs = [clicked_points'];
+disp(zs);
 % allows for multiple point charges
 rhs_log = 0;
 for j = 1:width(zs)
@@ -60,16 +131,20 @@ for j=1:n
         A = [A [0; real(zck)] [0;imag(zck)]];
     end
 end
-disp(size(A));
-disp(size(rhs));
+
 X = A\rhs;
-disp(size(X));
 e=X(1); X(1) = []; %constant voltage on wires
 d = X(1:2*N+1:end); X(1:2*N+1:end) = [];
 a = X(1:2:end); b=X(2:2:end);
 
 
-x = linspace(-1.8, 1.8, 120); y = linspace(-1.8, 1.8, 120);
+min_x = min(x);
+max_x = max(x);
+min_y = min(y);
+max_y = max(y);
+
+
+x = linspace(min_x-2, max_x+2, 120); y = linspace(min_y-2, max_y+2, 120);
 [xx, yy] = meshgrid(x, y); zz=xx+1i*yy; 
 % allows for multiple point charges
 uu = 0;
@@ -90,8 +165,8 @@ end
 % y_circ = a*sin(theta) + imag(zs);
 % [in,~] = inpolygon(xx,yy,x_circ,y_circ);      
 
-[grad_xx, grad_yy] = gradient(real(uu), 3.6/120, 3.6/120);
-disp(size(uu));
+[grad_xx, grad_yy] = gradient(real(uu), abs(max_x-min_x)/120, abs(max_y-min_y)/120);
+
 
 %grad_xx(in)=0;grad_yy(in)=0; %filter for too close to point charge
 magFX_grid = sqrt(grad_xx.^2 + grad_yy.^2);
@@ -105,7 +180,7 @@ for j=1:n, uu(abs(zz-c(j))<rr(j)) = NaN; end
 z = exp(pi*1i*(-50:50)'/50);
 for j=1:n, disk = c(j)+rr(j)*z; fill(real(disk), imag(disk), [1 .7 .7])
     hold on, plot(disk, '-r'), end
-contour(xx, yy, real(uu), -2:.1:2), colormap([0 0 0]), axis([-1.8 1.8 -1.8 1.8])
+contour(xx, yy, real(uu), -2:.1:2), colormap([0 0 0]), axis([min_x max_x min_y max_y])
 axis square, plot(real(zs), imag(zs), '.r')
 %, plot(real(zs(2)), imag(zs(2)), '.r')
 figure;

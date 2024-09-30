@@ -1,7 +1,7 @@
 n = 5;r = 0.01;
 warning('off')
 % -------------------- Reading .vec files ----------------------- %
-vecFile = 'fruit.vec';
+vecFile = 'venndiagram.vec';
 
 vecRead = xmlread(vecFile);
 
